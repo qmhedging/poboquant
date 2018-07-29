@@ -41,14 +41,14 @@ def OnQuote(context, code) :
         log.info("最新K线的最高价: "  + str(lasthigh))
     #如果配置好交易账号了，可以根据条件下单，需把下面中的证券测试账号换成您设置的账号名称
     if len(klinedata) > 1 and klinedata[-1].close > klinedata[-2].close * 1.01 and context.myacc :
-        # 当日收盘价小于昨收则买入
+        # 当日收盘价大于昨收的1.01倍则买入
         context.myacc.InsertOrder(code, BSType.Buy, dyndata.now, 1000)
     elif len(klinedata) > 1 and klinedata[-1].close > klinedata[-2].close * 1.02 and context.myacc :
-        # 当日收盘价大于昨收则卖出
+        # 当日收盘价大于昨收的1.02倍则卖出
         context.myacc.InsertOrder(code, BSType.Sell, dyndata.now, 1000)
         
     elif len(klinedata) > 1 and klinedata[-1].close < klinedata[-2].close * 0.99 and context.myacc :
-        # 当日收盘价大于昨收则卖出
+        # 当日收盘价小于昨收的0.99则卖出 止损
         context.myacc.InsertOrder(code, BSType.Sell, dyndata.now, 1000)    
 
 #委托回报事件，当有委托回报时调用
