@@ -18,4 +18,6 @@ any issue, please post or contact me via qq 350052799
 
 也可以告诉我 qq 350052799，我帮你吐槽 
 
+也欢迎加群qq 726895887 向工程师反映问题 
+
 
