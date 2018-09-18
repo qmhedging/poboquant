@@ -14,7 +14,7 @@ any issue, please post or contact me via qq 350052799
 
 注册时 使用 邀请码 814685
 
-如果有问题，欢迎在git上吐槽 
+如果有问题，欢迎在git issues上吐槽 
 
 也可以告诉我 qq 350052799，我帮你吐槽 
 
