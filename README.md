@@ -20,4 +20,6 @@ any issue, please post or contact me via qq 350052799
 
 也欢迎加群qq 726895887 向工程师反映问题 
 
+![image](https://github.com/qmhedging/poboquant/blob/master/%E6%BE%8E%E5%8D%9A%E4%BA%91%E9%87%8F%E5%8C%96mag.jpg)
+
 
