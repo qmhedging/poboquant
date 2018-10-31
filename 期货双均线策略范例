@@ -56,7 +56,9 @@ def OnBar(context,code,bartype) :
     elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:
         print "to buy...." 
         context.myacc.InsertOrder(g.code, BSType.BuyOpen, dyndata.now, 1)
-        print "账户金额 ：",context.accounts["回测期货"].AccountBalance
+        bal=context.accounts["回测期货"].AccountBalance.AssetsBalance #返回成交后账户权益
+        #api参考https://quant.pobo.net.cn/quant/doc?name=api#%E6%8C%81%E4%BB%93%E5%AF%B9%E8%B1%A1position%E7%94%A8%E6%B3%95
+        print "账户金额 ："+str(bal)
         #orders = context.accounts["回测期货"].GetOrder(order.id)
         #print str(orders.volume)
         #OnOrderChange(context, "回测期货", order)
