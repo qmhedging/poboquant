@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+#简单的例子，并不挣钱，细节读者自己添加
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print "I\'m starting..."
+    #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
+    context.myacc = None
+    if context.accounts.has_key("回测期货") :
+        print "登录交易账号[回测期货]"
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]    
+
+def OnMarketQuotationInitial(context, marketid):
+    if marketid != 'SHFE':
+        return
+    #获取主力合约
+    g.code = GetMainContract('SHFE', 'rb',20)
+    print g.code
+
+    #订阅实时数据，用于驱动OnQuote事件
+    SubscribeQuote(g.code)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Day)
+    
+def OnOrderChange(context, AccountName, order) :
+    Test = context.accounts["回测期货"].GetOrder(order.id)
+    print str(Test.volume)
+    
+#实时行情事件，当有新行情出现时调用该事件
+def OnBar(context,code,bartype) :
+
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)
+    #创建均线
+    MA = CreateIndicator("MA")
+    #设定参数，也可以不设置，系统有自带的默认参数
+    param = {"P1":5,"P2":10, "P3":20, "P4":40, "P5":60,"P6":0, "P7":0, "P8":0}
+    MA.SetParameter(param)
+    #设定要计算KDJ的品种和K线周期
+    MA.Attach(g.code, BarType.Day)
+    #开始计算
+    MA.Calc()
+    #获取计算结果，返回对应结果的list
+    MA1 = MA.GetValue("MA(5)")
+    MA2 = MA.GetValue("MA(10)") 
+    if len(MA2)<2:
+        return
+    #ma1上穿ma2时买入螺纹主力1手
+    elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:
+        print "to buy...." 
+        context.myacc.InsertOrder(g.code, BSType.BuyOpen, dyndata.now, 1)
+        print "账户金额 ：",context.accounts["回测期货"].AccountBalance
+        #orders = context.accounts["回测期货"].GetOrder(order.id)
+        #print str(orders.volume)
+        #OnOrderChange(context, "回测期货", order)
+        TradeDetails = context.accounts["回测期货"].GetTradeDetails()
+        print TradeDetails
+    #ma1下穿ma2时卖出平仓
+    elif MA1[-1] <= MA2[-1] and MA1[-2]>MA2[-2]:
+        print "to sell..." 
+        context.myacc.InsertOrder(g.code, BSType.SellClose, dyndata.now, 1)
