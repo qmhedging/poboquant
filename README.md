@@ -6,6 +6,8 @@ visit https://quant.pobo.net.cn/quant/login#/
 with invitation code 
 814685
 
+API Doc is here https://quant.pobo.net.cn/quant/doc?name=api
+
 any issue, please post or contact me via qq 350052799
 
 澎博财经 量化策略研究平台 
@@ -13,6 +15,8 @@ any issue, please post or contact me via qq 350052799
 欢迎访问 https://quant.pobo.net.cn/quant/login#/
 
 注册时 使用 邀请码 814685
+
+API文档可参见 https://quant.pobo.net.cn/quant/doc?name=api
 
 如果有问题，欢迎在git issues上吐槽 
 
