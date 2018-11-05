@@ -40,7 +40,7 @@ def OnQuote(context,code) :
     ma1905now=dyndatama1905.now
     
     print "spread ",ma1901now-ma1905now
-
+    #如果使用默认回测设置，将计算每日15：00的价差
     if ma1901now-ma1905now<=159 and len(pos)==0 :#最新价差小于159且没有持仓就买入
         print "to buy Spread...." 
         context.myacc.InsertOrder(g.code1, BSType.BuyOpen, ma1901now, 1)
