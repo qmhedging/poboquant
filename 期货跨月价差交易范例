@@ -5,6 +5,7 @@ import datetime
 import numpy as np
 #简单的价差交易例子，并不挣钱，细节读者自己添加
 #在用户设置里查一下自己的初始测试账户名称，是不是“回测期货”，不是的话改成你自己的测试期货账户名称即可
+#A very simple example of calendar spread trade of futures
 #开始时间，用于初始化一些参数
 def OnStart(context) :
     print "I\'m starting..."
