@@ -1,0 +1,77 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+#简单的例子，并不挣钱，细节读者自己添加 an example of soybean meal covered-call strategy
+#在用户设置里查一下自己的初始测试账户名称，是不是“回测期货”，不是的话改成你自己的测试期货账户名称即可
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print "I\'m starting..."
+    #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
+    context.myacc = None
+    if context.accounts.has_key("回测期货") :
+        print "登录交易账号[回测期货]"
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]    
+    SubscribeQuote(["m1805.DCE","m1805-C-3000.DCE"])
+    g.code1="m1805.DCE"
+    g.code2="m1805-C-3000.DCE"
+
+    
+def OnOrderChange(context, AccountName, order) :
+    Test = context.accounts["回测期货"].GetOrder(order.id)
+    print str(Test.volume)
+    
+#实时行情事件，当有新行情出现时调用该事件
+def OnQuote(context,code) :
+    option=PBObj()
+    #option.buysellflag='0'
+    pos = context.accounts["回测期货"].GetPositions()
+    #print "positions ",pos
+    #print "len(pos) ",len(pos)
+    
+
+    #dyndatam1901 = GetQuote(g.code1)
+    #dyndatam1901c3000 = GetQuote(g.code2)
+    
+    leg1=GetQuote(g.code1).clear
+    print "leg1 price "+str(leg1)
+    leg2=GetQuote(g.code2).clear
+    print "leg2 price "+str(leg2)
+    timerecorder=GetQuote(g.code1).time
+    
+    if leg2==0:
+      print "option price error"
+    premiumratio=float(leg2/leg1)
+    print "premium ratio "+str(premiumratio)+" "+str(leg2)+" "+str(leg1)
+    
+    
+    print "at time ",timerecorder
+
+    if premiumratio<=0.001 and len(pos)==0 : # if soybean meal options too cheap,then buy opt short fut
+        print "to buy Spread...." 
+        context.myacc.InsertOrder(g.code2, BSType.BuyOpen, leg2, 1)
+        context.myacc.InsertOrder(g.code1, BSType.SellOpen, leg1, 1)
+        print "positions bought ",timerecorder
+        bal=context.accounts["回测期货"].AccountBalance.AssetsBalance #返回成交后账户权益
+        #api参考https://quant.pobo.net.cn/quant/doc?name=api#%E6%8C%81%E4%BB%93%E5%AF%B9%E8%B1%A1position%E7%94%A8%E6%B3%95
+        print "账户金额 ："+str(bal)
+        #orders = context.accounts["回测期货"].GetOrder(order.id)
+        #print str(orders.volume)
+        #OnOrderChange(context, "回测期货", order)
+        TradeDetails = context.accounts["回测期货"].GetTradeDetails()
+        print TradeDetails
+        #print "len(pos) in trade ",len(pos)
+        pos = context.accounts["回测期货"].GetPositions()
+        print "len(pos) str in trade "+str(len(pos))
+    #
+    if premiumratio>0.01 and len(pos)>0:
+        print "to sell Spread..." 
+        context.myacc.InsertOrder(g.code1, BSType.BuyClose, leg1, 1)
+        context.myacc.InsertOrder(g.code2, BSType.SellClose, leg2, 1)
+        print "positions sold ",timerecorder
+        bal=context.accounts["回测期货"].AccountBalance.AssetsBalance #返回成交后账户权益
+        print "账户金额 ："+str(bal)
+        pos = context.accounts["回测期货"].GetPositions()
+        print "len(pos) str in trade "+str(len(pos))
