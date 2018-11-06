@@ -4,7 +4,7 @@ from PoboAPI import *
 import datetime
 import numpy as np
 #简单的例子，并不挣钱，细节读者自己添加 an example of soybean meal covered-call strategy,could get some problem of price data gap as 
-#soybean meal options got quite thin trading volume
+#soybean meal options got quite thin trading volume 读者可以自己写一些算法避免期权历史价格稀疏的问题
 #在用户设置里查一下自己的初始测试账户名称，是不是“回测期货”，不是的话改成你自己的测试期货账户名称即可
 #开始时间，用于初始化一些参数
 def OnStart(context) :
