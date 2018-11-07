@@ -56,20 +56,20 @@ def OnQuote(context, code) :
     print "持仓合约数： "+str(poslength)
     #如果配置好交易账号了，可以根据条件下单，需把下面中的证券测试账号换成您设置的账号名称
     if len(klinedata1) > 1 and len(klinedata2) > 1 and lastspread<5 and context.myacc and posmargin<100000 :
-        # 两个期权价差小于50就买入价差
+        # 两个期权价差小于50就买入价差,开仓策略，open position
         print "buy open the spread "+str(lastspread)
         context.myacc.InsertOrder(g.code1, BSType.BuyOpen, dyndata1.now, 10)
         context.myacc.InsertOrder(g.code2, BSType.SellOpen, dyndata2.now, 10)
         
         
     if len(klinedata1) > 1 and len(klinedata2) > 1 and lastspread>60 and poslength>0 and context.myacc  :
-        # 两个期权价差大于100就卖出价差
+        # 两个期权价差大于60就卖平价差，平仓，close positions
         print "sell close the spread,take profit "+str(lastspread)
         context.myacc.InsertOrder(g.code1, BSType.SellClose, dyndata1.now, 10)
         context.myacc.InsertOrder(g.code2, BSType.BuyClose, dyndata2.now, 10)
     
     if len(klinedata1) > 1 and len(klinedata2) > 1 and lastspread<2 and poslength>0 and context.myacc  :
-        # 两个期权价差大于100就卖出价差
+        # 两个期权价差小于2就卖平价差，止损，cut loss
         print "sell close the spread,cut loss "+str(lastspread)
         context.myacc.InsertOrder(g.code1, BSType.SellClose, dyndata1.now, 10)
         context.myacc.InsertOrder(g.code2, BSType.BuyClose, dyndata2.now, 10)    
