@@ -5,6 +5,7 @@ visit https://quant.pobo.net.cn/quant/login#/
 
 with invitation code 
 814685
+Options Tick Level Backtest supported
 
 API Doc is here https://quant.pobo.net.cn/quant/doc?name=api
 
