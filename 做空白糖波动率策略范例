@@ -1,5 +1,5 @@
-#!/usr/bin/env python
 # coding:utf-8
+#!/usr/bin/env python
 from PoboAPI import *
 import datetime
 #做空白糖期权波动率策略，比如你认为白糖价格在较长时间里会在5000～6000区间运行，而不会向上或向下突破
