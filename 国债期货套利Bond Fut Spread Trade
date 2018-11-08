@@ -1,0 +1,77 @@
+# coding:utf-8
+#!/usr/bin/env python
+
+from PoboAPI import *
+import datetime
+import numpy as np
+#债券期货价差策略,10年期国债与5年期国债价差 spread trade on 10y and 5y bond futures
+def OnStart(context) :
+    print "I\'m starting..."
+    
+    context.myacc = None
+    if context.accounts.has_key("回测期货"):
+        print "登录交易账号[回测期货]"
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]    
+    SubscribeQuote(["T1812.CFFEX","TF1812.CFFEX"]) 
+    g.code1="T1812.CFFEX"
+    g.code2="TF1812.CFFEX"
+
+    
+def OnOrderChange(context, AccountName, order) :
+    Test = context.accounts["回测期货"].GetOrder(order.id)
+    print str(Test.volume)
+    
+
+def OnQuote(context,code) :
+    option=PBObj()
+    #option.buysellflag='0'
+    pos = context.accounts["回测期货"].GetPositions()
+    #print "positions ",pos
+    #print "len(pos) ",len(pos)
+    
+
+    leg1 = GetQuote(g.code1)
+    leg2 = GetQuote(g.code2)
+    
+    leg1now=leg1.now
+    leg2now=leg2.now
+    spreadnow=leg1now-leg2now
+    print "spread "+str(spreadnow) # 最新价差
+    
+    if spreadnow<=0.5 and len(pos)==0 : #10债和5债价差小于0.5就买10债卖5债
+        print "to buy Spread....要开仓" 
+        context.myacc.InsertOrder(g.code1, BSType.BuyOpen, leg1now, 10)
+        context.myacc.InsertOrder(g.code2, BSType.SellOpen,  leg2now, 10)
+        print "positions bought"
+        bal=context.accounts["回测期货"].AccountBalance.AssetsBalance #返回成交后账户权益
+        
+        print "账户金额 ："+str(bal)
+        #orders = context.accounts["回测期货"].GetOrder(order.id)
+        #print str(orders.volume)
+        #OnOrderChange(context, "回测期货", order)
+        TradeDetails = context.accounts["回测期货"].GetTradeDetails()
+        print TradeDetails
+        #print "len(pos) in trade ",len(pos)
+        pos = context.accounts["回测期货"].GetPositions()
+        print "len(pos) str in trade "+str(len(pos))
+    
+    if spreadnow>1 and len(pos)>0: #有持仓且最新价差大于1就卖出止盈
+        print "to sell Spread..." 
+        context.myacc.InsertOrder(g.code1, BSType.SellClose, leg1now, 10)
+        context.myacc.InsertOrder(g.code2, BSType.BuyClose, leg2now, 10)
+        print "positions sold，已经获利平仓"
+        bal=context.accounts["回测期货"].AccountBalance.AssetsBalance #返回成交后账户权益
+        print "账户金额 ："+str(bal)
+        pos = context.accounts["回测期货"].GetPositions()
+        print "len(pos) str in trade "+str(len(pos))
+    
+    if spreadnow<=0.3 and len(pos)>0: #有持仓且最新价差小于0.3就卖出止损
+        print "to sell Spread..." 
+        context.myacc.InsertOrder(g.code1, BSType.SellClose, leg1now, 10)
+        context.myacc.InsertOrder(g.code2, BSType.BuyClose, leg2now, 10)
+        print "positions sold 已经止损"
+        bal=context.accounts["回测期货"].AccountBalance.AssetsBalance #返回成交后账户权益
+        print "账户金额 ："+str(bal)
+        pos = context.accounts["回测期货"].GetPositions()
+        print "len(pos) str in trade "+str(len(pos))
