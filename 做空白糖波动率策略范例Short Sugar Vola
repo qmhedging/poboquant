@@ -2,7 +2,7 @@
 #!/usr/bin/env python
 from PoboAPI import *
 import datetime
-#做空白糖期权波动率策略，比如你认为白糖价格在较长时间里会在5000～6000区间运行，而不会向上或向下突破
+#做空白糖期权波动率策略，卖宽跨式，比如你认为白糖价格在较长时间里会在5000～6000区间运行，而不会向上或向下突破
 #short sugar price volatility, like you believe that sugar will range move in 5000 to 6000,no break out in either way
 #开始时间，用于初始化一些参数
 def OnStart(context) :
