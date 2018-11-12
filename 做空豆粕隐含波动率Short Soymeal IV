@@ -102,7 +102,7 @@ def OnQuote(context, code) :
     #dates=GetOptionsLastDates("SR901C6000.CZCE") # not working 
     #dates=GetOptionsLastDates("510050.SHSE")#  working
     #dates=GetOptionsLastDates("m1805-C-3300.DCE")
-    dates=datetime.datetime(2018,12,7) # expire date for m1901 options 
+    dates=datetime.datetime(2018,12,7) # expire date for m1901 options, if the date is known,should be searchable by GetOptionsLastDates soon. 
     
     print "dates of expire ",str(dates)
     
