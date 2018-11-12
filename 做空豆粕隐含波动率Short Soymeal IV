@@ -10,7 +10,7 @@ def OnStart(context) :
     print "system starting..."
     #设定一个全局变量品种
     g.code1 = "m1901-C-3300.DCE"
-    g.code0 = "m1901.DCE"
+    g.code0 = "m1901.DCE" # 
 
     #订阅实时数据，用于驱动OnQuote事件
     SubscribeQuote([g.code1,g.code0])
@@ -55,7 +55,7 @@ def OnQuote(context, code) :
     #print "yearstring=int(tradingtime.year)",int(tradingtime.year)
     monthstring=int(tradingtime.month)
     daystring=int(tradingtime.day)
-    #准备计算白糖期货的历史波动率
+    #准备计算期货的历史波动率
     if monthstring-1 in [1,3,5,7,8,10,12]:
       option.StartDate = datetime.datetime(yearstring,monthstring-1,daystring)
     if monthstring-1==2:
@@ -87,7 +87,7 @@ def OnQuote(context, code) :
         Kl = np.array(klist, dtype=np.double)
         HisVola=CalOBJ.GetVolatility(Kl) #得到历史波动率
     print "30D HisVola "+str(HisVola)
-    
+    #cal IV based on 8 paras, refer to https://quant.pobo.net.cn/quant/doc?name=api#%E8%AE%A1%E7%AE%97%E9%9A%90%E5%90%AB%E6%B3%A2%E5%8A%A8%E7%8E%87%E2%80%94getimpliedvolatility
     OptDirection=0 # 0 for call, 1 for put
     
     AssetType=2 # 0 for stock opt,1 for etf opt, 2 for futures opt
