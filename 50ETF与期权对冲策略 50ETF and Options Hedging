@@ -18,13 +18,13 @@ def OnStart(context) :
     SubscribeBar(g.code1, BarType.Day)
 
     #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
-    context.myaccOPT = None
+    context.myaccOPT = None #初始化期权账户
     if context.accounts.has_key("回测期权") :
         print "登录交易账号[回测期权]"
         if context.accounts["回测期权"].Login() :
             context.myaccOPT = context.accounts["回测期权"]
     
-    context.myaccSTC = None
+    context.myaccSTC = None #初始化股票账户
     if context.accounts.has_key("回测证券") :
         print "登录交易账号[回测证券]"
         if context.accounts["回测证券"].Login() :
