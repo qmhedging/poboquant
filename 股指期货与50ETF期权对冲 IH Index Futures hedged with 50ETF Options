@@ -79,7 +79,7 @@ def OnQuote(context, code) :
     #print "yearstring=int(tradingtime.year)",int(tradingtime.year)
     monthstring=int(tradingtime.month)
     daystring=int(tradingtime.day)
-    #准备计算白糖期货的历史波动率
+    #准备计算50ETF的历史波动率
     if monthstring-1 in [1,3,5,7,8,10,12]:
       option.StartDate = datetime.datetime(yearstring,monthstring-1,daystring)
     if monthstring-1==2:
