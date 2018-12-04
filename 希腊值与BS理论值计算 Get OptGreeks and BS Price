@@ -1,0 +1,184 @@
+# coding:utf-8
+#!/usr/bin/env python
+from PoboAPI import *
+import datetime
+import numpy as np
+#上证50指数期货 和 50ETF期权的对冲交易，当ETF隐含波动率较高时就买IH期货并做空ETF看涨期权
+#Hedge IH Index Futures with 50ETF call options, open positions when IV's high
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print "system starting..."
+    #设定一个全局变量品种
+    
+    g.code0 = "510050.SHSE"
+    g.code1 = "10001315.SHSE" # 50ETF购12月2600
+    g.code2="IH1812.CFFEX"
+
+    #订阅实时数据，用于驱动OnQuote事件
+    SubscribeQuote([g.code1,g.code0,g.code2]) #批量订阅行情
+    #订阅K线数据，用于驱动OnBar事件
+    #SubscribeBar(g.code1, BarType.Day)
+
+    #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
+    context.myaccOPT = None
+    if context.accounts.has_key("回测期权") :
+        print "登录交易账号[回测期权]"
+        if context.accounts["回测期权"].Login() :
+            context.myaccOPT = context.accounts["回测期权"]
+    
+    context.myaccFUT = None
+    if context.accounts.has_key("回测期货") :
+        print "登录交易账号[回测期货]"
+        if context.accounts["回测期货"].Login() :
+            context.myaccFUT = context.accounts["回测期货"]        
+  
+#实时行情事件，当有新行情出现时调用该事件
+def OnQuote(context, code) :
+    #获取最新行情
+    dyndata1 = GetQuote(g.code1).now#.now指最新价，详细属性见API文档
+    dyndata0 = GetQuote(g.code0).now
+    dyndata2 = GetQuote(g.code2).now
+    tradingtime=GetQuote(g.code0).time#获取50ETF交易时间，用于计算波动率
+    print "tradingtime ",tradingtime
+    if dyndata1 and dyndata0 and dyndata2 :        
+        now1 = dyndata1
+        now0 = dyndata0
+        now2 = dyndata2
+        #打印最新价
+        log.info("50ETF购12月2600: " + str(dyndata1))
+        log.info("510050最新价: " + str(dyndata0))
+        log.info("IH1812最新价:" + str(dyndata2))        
+               
+        #klinedata0 = GetHisData(g.code0, BarType.Day)#获取K线数据         
+        CalOBJ = CreateCalcObj() #创建一个计算对象
+        option = PBObj()
+        yearstring=int(tradingtime.year) #tradingtime 是用户取得的标的资产交易日期       
+        monthstring=int(tradingtime.month)
+        daystring=int(tradingtime.day)
+        #准备计算50ETF的历史波动率
+        option.EndDate=datetime.datetime(yearstring,monthstring,daystring)
+        option.Count = 31 #获取过去31条K线
+        klinedata0 = GetHisData(g.code0, BarType.Day, option)
+        #print "len(klinedata) ",len(klinedata)
+        klist = []
+        i=0
+        while i<len(klinedata0)-1:
+            #print "previous trading day" +str(klinedata0[i].tradedate)
+            #print "previous prices "+str(klinedata0[i].close)
+            klist.append(klinedata0[i].close) #  
+            i+=1
+        if len(klist)>0:
+            Kl = np.array(klist, dtype=np.double)
+            HisVola=CalOBJ.GetVolatility(Kl) #得到历史波动率
+        print "30D HisVola "+str(HisVola)
+        
+        OptDirection=0 # 0 for call, 1 for put
+        
+        AssetType=0 # 0 for stock opt,1 for etf opt, 2 for futures opt
+        
+        AssetPrice=now0 # here is the 510050 price
+        print "AssetPrice ",AssetPrice
+        StrikePrice=2.6 # for 50ETF购12月2600 strike price
+        
+        InterestRate=4.5*0.01 # the risk free interest rate 
+        print "g.code ",g.code0
+        #dates=GetOptionsLastDates("m1901.DCE")# not working
+        #dates=GetOptionsLastDates("SR901C6000.CZCE") # not working 
+        #dates=GetOptionsLastDates("510050.SHSE")#  working
+        #dates=GetOptionsLastDates("m1805-C-3300.DCE")
+        dates=datetime.datetime(2018,12,26) # expire date for 50ETF购12月2600 options 
+        
+        print "dates of expire ",str(dates)
+        
+        #ExpireinYear=(GetOptionsLastDates(g.code1) - tradingtime).days / 365.0 # years to expire
+        ExpireinYear=(dates - tradingtime).days / 365.0 # years to expire
+        print "ExpireinYear ",ExpireinYear
+        OptionPrice=now1 # for option price
+        
+        
+        #calculate the implied volatility
+        #format (direction,asset type,asset price,strikeprice,HisVola,interest rate,expire year,option price)
+        print "opt para:"+str(OptDirection)+","+str(AssetType)+","+str(AssetPrice)+","+str(StrikePrice)+","+str(HisVola)+","+str(InterestRate)+","+str(ExpireinYear)+","+str(OptionPrice)
+        ImpliedVola=CalOBJ.GetImpliedVolatility(OptDirection,AssetType,AssetPrice,StrikePrice,HisVola,InterestRate,ExpireinYear,OptionPrice)
+        print "Implied Volatility is " + str(ImpliedVola)
+        #Get BS Price 这里开始计算BS 理论价格
+        BSPrice=CalOBJ.GetOptionBSPrice(OptDirection,AssetType,AssetPrice,StrikePrice,HisVola,InterestRate,ExpireinYear)
+        #GetOptionBSPrice(direct, type, stockprice, strikeprice, volatility, r, t)
+        print "BS Theory Price is "+ str(BSPrice) +" vs option market price "+str(dyndata1)
+        
+        #Cal Opt Greeks #这里开始计算希腊值
+        #GetOptionDelta(direct,type,stockprice,strikeprice,volatility,r,t)
+        OptDelta=CalOBJ.GetOptionDelta(OptDirection,AssetType,AssetPrice,StrikePrice,HisVola,InterestRate,ExpireinYear)
+        print "Option Delta is "+ str(OptDelta)
+        
+        OptTheta=CalOBJ.GetOptionTheta(OptDirection,AssetType,AssetPrice,StrikePrice,HisVola,InterestRate,ExpireinYear)
+        print "Option Theta is "+ str(OptTheta)
+        
+        OptGamma=CalOBJ.GetOptionGamma(OptDirection,AssetType,AssetPrice,StrikePrice,HisVola,InterestRate,ExpireinYear)
+        print "Option Gamma is "+ str(OptGamma)
+        
+        
+        OptVega=CalOBJ.GetOptionVega(OptDirection,AssetType,AssetPrice,StrikePrice,HisVola,InterestRate,ExpireinYear)
+        print "Option Vega is "+str(OptVega)
+        
+        OptRho=CalOBJ.GetOptionRho(OptDirection,AssetType,AssetPrice,StrikePrice,HisVola,InterestRate,ExpireinYear)
+        print "Option Rho is "+str(OptRho)
+        
+        
+        
+        balOPT = context.myaccOPT.AccountBalance #获取期权账户持仓市值状况
+        posmarginOPT=balOPT.MarketValue        
+        balFUT = context.myaccFUT.AccountBalance #获取期货账户持仓市值状况
+        posmarginFUT=balFUT.MarketValue        
+        posmargin=posmarginOPT + posmarginFUT         
+        option.contract=g.code1
+        posOPT = context.myaccOPT.GetPositions(option)         
+        poslengthOPT=len(posOPT)#期权账户持仓种类        
+        if  poslengthOPT>0:          
+          for i in posOPT:
+            print "holding contract "+str(i.contract)
+            print "holding contract volume "+str(i.volume)
+            print '----------------'
+          OptVolume= i.volume
+        print "期权持仓合约数： "+str(poslengthOPT)
+        
+        option.contract=g.code2
+        posFUT = context.myaccFUT.GetPositions(option)        
+        poslengthFUT=len(posFUT)#期货账户持仓种类        
+        if  poslengthFUT>0:          
+          for i in posFUT:
+            print "holding contract "+str(i.contract)
+            print "holding contract volume "+str(i.volume)
+            print '----------------'
+          FUTVolume= i.volume
+        print "期货持仓合约数： "+str(poslengthFUT)
+        #如果配置好交易账号了，可以根据条件下单，需把下面中的证券测试账号换成您设置的账号名称
+        #if len(klinedata1) > 1  and ImpliedVola>0.23 and context.myaccOPT and context.myaccFUT  and posmargin<600000 :
+        if  ImpliedVola>0.23   and posmargin<600000 :
+            # 50ETF期权隐含波动率大于23%就卖出期权、买入期货
+            print "open positions with IV at "+str(ImpliedVola)
+            print "trading day "+str(tradingtime)
+            print "期权持仓市值 "+str(posmargin)
+            context.myaccOPT.InsertOrder(g.code1, BSType.SellOpen, dyndata1, 30)#sell options
+            context.myaccFUT.InsertOrder(g.code2, BSType.BuyOpen, dyndata2, 1)#buy ETF
+            
+            
+        if  ImpliedVola<0.20 and poslengthOPT>0 :
+            # 有持仓时，50ETF期权隐含波动率小于20%就买平期权、卖平期货
+            print "Close positions,take profit with IV"+str(ImpliedVola)
+            print "trading day "+str(tradingtime)
+            context.myaccOPT.InsertOrder(g.code1, BSType.BuyClose, dyndata1, OptVolume)
+            context.myaccFUT.InsertOrder(g.code2, BSType.SellClose, dyndata2, FUTVolume)
+        
+        if  ImpliedVola>0.25 and poslengthOPT>0 :
+            # 有持仓时，50ETF波动率大于25%就买平期权、卖平期货，止损平仓
+            print "sell close the spread,cut loss with IV "+str(ImpliedVola)
+            print "trading day "+str(tradingtime)
+            context.myaccOPT.InsertOrder(g.code1, BSType.BuyClose, dyndata1, OptVolume)
+            context.myaccFUT.InsertOrder(g.code2, BSType.SellClose, dyndata2, FUTVolume)    
+
+#委托回报事件，当有委托回报时调用
+def OnOrderChange(context, AccountName, order) :
+    #打印委托信息，id是编号，volume是数量，详细见API文档
+    print "委托编号： " + order.id + "   账号名称： " + AccountName
+    print "Vol: " + str(order.volume) + " Price: " + str(order.price)
