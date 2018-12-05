@@ -107,20 +107,21 @@ def OnQuote(context, code) :
         print "BS Theory Price is "+ str(BSPrice) +" vs option market price "+str(dyndata1)
         
         #Cal Opt Greeks #这里开始计算希腊值
+        #Delta
         #GetOptionDelta(direct,type,stockprice,strikeprice,volatility,r,t)
         OptDelta=CalOBJ.GetOptionDelta(OptDirection,AssetType,AssetPrice,StrikePrice,HisVola,InterestRate,ExpireinYear)
         print "Option Delta is "+ str(OptDelta)
-        
+        #Theta
         OptTheta=CalOBJ.GetOptionTheta(OptDirection,AssetType,AssetPrice,StrikePrice,HisVola,InterestRate,ExpireinYear)
         print "Option Theta is "+ str(OptTheta)
-        
+        #Gamma
         OptGamma=CalOBJ.GetOptionGamma(OptDirection,AssetType,AssetPrice,StrikePrice,HisVola,InterestRate,ExpireinYear)
         print "Option Gamma is "+ str(OptGamma)
         
-        
+        #Vega
         OptVega=CalOBJ.GetOptionVega(OptDirection,AssetType,AssetPrice,StrikePrice,HisVola,InterestRate,ExpireinYear)
         print "Option Vega is "+str(OptVega)
-        
+        #Rho
         OptRho=CalOBJ.GetOptionRho(OptDirection,AssetType,AssetPrice,StrikePrice,HisVola,InterestRate,ExpireinYear)
         print "Option Rho is "+str(OptRho)
         
