@@ -19,10 +19,10 @@ def OnStart(context) :
         print "登录交易账号[回测期权]"
         if context.accounts["回测期权"].Login() :
             context.myacc = context.accounts["回测期权"]
-def Getop(code):
+def Getop(code): #查询虚值期权合约
     dyndata = GetQuote(code)
     now1 = dyndata.now
-    now50 = round(now1,1) + 0.05
+    now50 = round(now1,1) + 0.05 #到虚值一档
     cutime = GetCurrentTime()
     if cutime.day >15 and cutime.month<12:
         tim = cutime.month + 1
@@ -33,11 +33,11 @@ def Getop(code):
         month_time = datetime.datetime(month=tim, year=yea,day = 20) 
     else:
         month_time = cutime
-    atmopc = GetAtmOptionContract(code,month_time,now50,0)
-    atmopp = GetAtmOptionContract(code,month_time,now50,1)
+    atmopc = GetAtmOptionContract(code,month_time,now50,0) #查对应虚值call合约
+    atmopp = GetAtmOptionContract(code,month_time,now50,1) #查对应虚值put合约
     return atmopc,atmopp
   
-def stime(op):
+def stime(op): #计算到期日
     info1 = GetContractInfo(op)
     kill = info1['行权到期日']
     print str(type(kill))
@@ -72,7 +72,7 @@ def OnQuote(context, code) :
     option = PBObj()
     option.EndDate = GetCurrentTime()
     option.Count = 60
-    #获取最近10天的最高价列表
+    #计算60天历史波动率
     klist = GetHisDataByField(g.code, BarType.Day, "close", option)
     if len(klist)>0:
         Kl = np.array(klist, dtype=np.double)
@@ -80,7 +80,7 @@ def OnQuote(context, code) :
         print "历史波动率"
         print c
 
-    if len(posi) == 0 and c<0.35:
+    if len(posi) == 0 and c<0.35: #无持仓且历史波动率在35%以下就卖虚值一档期权
         opc,opp = Getop(g.code)
         print str(opc)
         dync = GetQuote(opc)
@@ -105,10 +105,10 @@ def OnQuote(context, code) :
         print str(pr1) + '行权价格'
         print str(pr2) + '行权价格2'
         print sy
-        if sy<3:
+        if sy<3:#据到期日小于3天就买平仓
             context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now, 100)
             context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now, 100)
-        elif now1 >= pr1 or now1 <= (pr1-0.15):
+        elif now1 >= pr1 or now1 <= (pr1-0.15): #ETF价格高于call行权价 或 call行权价比ETF价格高出0.15，买平仓
             context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now, 100)
             context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now, 100)
 #委托回报事件，当有委托回报时调用
