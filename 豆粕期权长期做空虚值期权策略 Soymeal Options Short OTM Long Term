@@ -22,13 +22,7 @@ def OnStart(context) :
         if context.accounts["回测期货"].Login() :
             context.myacc = context.accounts["回测期货"]
 
-#def GetMainCode(code):
-    
-#    code = GetMainContract('DCE','m',20)
-    
-#    print "now the code is "+str(code)
-    
-#    return code
+
             
 def Getop(code):
     print "code is " +str(code)
