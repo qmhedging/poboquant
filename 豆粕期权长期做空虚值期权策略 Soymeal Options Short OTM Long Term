@@ -1,0 +1,137 @@
+# coding:utf-8
+#!/usr/bin/env python
+
+from PoboAPI import *
+import datetime
+import time
+import numpy as np
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print "I\'m starting..."
+    #设定一个全局变量品种
+    g.code = GetMainContract('DCE','m',20)
+    #print '豆粕主力：' + str(g.code)
+    #订阅实时数据，用于驱动OnQuote事件
+    SubscribeQuote(g.code)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Day)
+    #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
+    context.myacc = None
+    if context.accounts.has_key("回测期货") :
+        print "登录交易账号[回测期货]"
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]
+
+#def GetMainCode(code):
+    
+#    code = GetMainContract('DCE','m',20)
+    
+#    print "now the code is "+str(code)
+    
+#    return code
+            
+def Getop(code):
+    print "code is " +str(code)
+    #g.code = GetMainContract('DCE','m',20)
+    #print '豆粕主力：' + str(g.code)
+    dyndata = GetQuote(code)
+    now1 = dyndata.now
+    now50 = round(now1/100,0)*100 + 200 #取虚值四档
+    print "strike price "+str(now50)
+    cutime = GetCurrentTime()
+    if cutime.day >15 and cutime.month<12:
+        tim = cutime.month + 1
+        month_time = datetime.datetime(month=tim, year=cutime.year,day = 20)
+    elif cutime.day >15 and cutime.month==12:
+        tim = 1
+        yea = cutime.year + 1
+        month_time = datetime.datetime(month=tim, year=yea,day = 20) 
+    else:
+        month_time = cutime
+    atmopc = GetAtmOptionContract(code,month_time,now50,0)
+    atmopp = GetAtmOptionContract(code,month_time,now50,1)
+    return atmopc,atmopp
+  
+def stime(op):
+    info1 = GetContractInfo(op)
+    kill = info1['行权到期日']
+    print str(type(kill))
+    cutime = GetCurrentTime()
+    if cutime.day <10:
+        cutim = str(cutime.year) + str(cutime.month) + '0' +str(cutime.day)
+    elif cutime.month <10:
+        cutim = str(cutime.year) + '0' + str(cutime.month) +str(cutime.day)
+    else:
+        cutim = str(cutime.year) + str(cutime.month) +str(cutime.day)
+    cu = int(cutim)
+    n = kill - cu
+    return n
+    
+#实时行情事件，当有新行情出现时调用该事件
+def OnQuote(context, code) :
+    g.code = GetMainContract('DCE','m',20)
+    print '豆粕主力：' + str(g.code)
+    #过滤掉不需要的行情通知
+    if code != g.code : 
+        print "code checking ..."+str(code)+"  "+str(g.code)
+        #return
+        code=g.code #处理主力合约切换的问题，也许有更好的写法
+    #获取最新行情
+    dyndata = GetQuote(g.code)
+    if dyndata :
+        #.now指最新价，详细属性见API文档i
+        now1 = dyndata.now
+        #打印最新价
+        log.info("最新价: " + str(dyndata.now) +" " + str(dyndata.time))
+    posi = context.myacc.GetPositions()
+    print "持仓数量： " +str(len(posi))
+    
+    b = CreateCalcObj()
+    option = PBObj()
+    option.EndDate = GetCurrentTime()
+    option.Count = 60
+    #获取最近10天的最高价列表
+    klist = GetHisDataByField(g.code, BarType.Day, "close", option)
+    if len(klist)>0:
+        Kl = np.array(klist, dtype=np.double)
+        c=b.GetVolatility(Kl)
+        print "历史波动率"
+        print c
+
+    if len(posi) == 0 and c<0.20:
+        opc,opp = Getop(g.code)
+        print "目标call" + str(opc) + " 目标put " + str(opp)
+        dync = GetQuote(opc)
+        dynp = GetQuote(opp)
+        if dync != None:
+            log.info("最新价2: " + str(dync.now))
+            log.info("最新价3: " + str(dynp.now))
+            context.myacc.InsertOrder(opc, BSType.SellOpen, dync.now, 100)
+            context.myacc.InsertOrder(opp, BSType.SellOpen, dynp.now, 100)
+    elif len(posi) >1:
+        print len(posi)
+        opcode1 = posi[0].contract
+        opcode2 = posi[1].contract
+        dyn1 = GetQuote(opcode1)
+        dyn2 = GetQuote(opcode2)
+        info1 = GetContractInfo(opcode1)
+        pr1 = info1['行权价格']
+        ki1 = info1['行权到期日']
+        info2 = GetContractInfo(opcode2)
+        pr2 = info2['行权价格']
+        sy = stime(opcode1)
+        print str(pr1) + '行权价格'
+        print str(pr2) + '行权价格2'
+        print sy
+        if sy<2:
+            context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now, 100)
+            context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now, 100)
+        elif now1 >= pr1 or now1 <= (pr1-250):
+            context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now, 100)
+            context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now, 100)
+#委托回报事件，当有委托回报时调用
+def OnOrderChange(context, AccountName, order) :
+    #打印委托信息，id是编号，volume是数量，详细见API文档
+    print "委托编号： " + order.id + "   账号名称： " + AccountName
+    print "Vol: " + str(order.volume) + " Price: " + str(order.price)
+
