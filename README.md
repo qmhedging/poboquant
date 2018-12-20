@@ -11,7 +11,7 @@ API Doc is here https://quant.pobo.net.cn/quant/doc?name=api
 
 any issue, please post or contact me via qq 350052799
 
-To connect Simnow account https://github.com/qmhedging/poboquant/wiki/%E4%BA%91%E9%87%8F%E5%8C%96-%E4%BD%BF%E7%94%A8%E6%8A%80%E5%B7%A7
+To connect Simnow account https://github.com/qmhedging/poboquant/wiki/%E4%BA%91%E9%87%8F%E5%8C%96-%E4%BD%BF%E7%94%A8%E6%8A%80%E5%B7%A7-Poboquant-Tips
 
 澎博财经 量化策略研究平台 
 
@@ -27,7 +27,7 @@ API文档可参见 https://quant.pobo.net.cn/quant/doc?name=api
 
 也欢迎加群qq 726895887 向工程师反映问题 
 
-如何连接simnow账户 https://github.com/qmhedging/poboquant/wiki/%E4%BA%91%E9%87%8F%E5%8C%96-%E4%BD%BF%E7%94%A8%E6%8A%80%E5%B7%A7
+如何连接simnow账户 https://github.com/qmhedging/poboquant/wiki/%E4%BA%91%E9%87%8F%E5%8C%96-%E4%BD%BF%E7%94%A8%E6%8A%80%E5%B7%A7-Poboquant-Tips
 
 期货策略回测界面 Futures Back Test UI：
 
