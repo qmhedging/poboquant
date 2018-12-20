@@ -123,10 +123,10 @@ def OnQuote(context, code) :
         print str(pr1) + '行权价格'
         print str(pr2) + '行权价格2'
         print sy
-        if sy<2:
+        if sy<2: #平仓的时间条件
             context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now, 100)
             context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now, 100)
-        elif now1 >= pr1 or now1 <= (pr1-250):
+        elif now1 >= pr1-100 or now1 <= (pr1-250): #平仓价格条件
             context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now, 100)
             context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now, 100)
 #委托回报事件，当有委托回报时调用
