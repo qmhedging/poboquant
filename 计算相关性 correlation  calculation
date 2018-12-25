@@ -1,0 +1,60 @@
+# coding:utf-8
+#!/usr/bin/env python
+#计算2个品种过去20日收盘价相关性 calculate close price correlation of two assets in the last 60 trading days
+from PoboAPI import *
+import datetime
+import numpy as np
+#import talib
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+  print "I\'m starting..."
+  #设定一个全局变量品种
+  g.code1 = "159919.SZSE"
+  g.code2 ="510050.SHSE"
+  #订阅实时数据，用于驱动OnQuote事件
+  SubscribeQuote([g.code1,g.code2])
+  #订阅K线数据，用于驱动OnBar事件
+  SubscribeBar(g.code1, BarType.Day)
+  #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
+  context.myacc = None
+  if context.accounts.has_key("回测证券") :
+    print "登录交易账号[回测证券]"
+    if context.accounts["回测证券"].Login() :
+      context.myacc = context.accounts["回测证券"]
+  
+#实时行情事件，当有新行情出现时调用该事件
+def OnQuote(context, code) :
+  #过滤掉不需要的行情通知
+  #if code != g.code :
+  #  return 
+  
+  #获取最新行情
+  g.code1 = "159919.SZSE"
+  g.code2 = "510050.SHSE"
+  dyndata1 = GetQuote(g.code1)
+  dyndata2=  GetQuote(g.code2)
+  if dyndata1 and dyndata2 :
+    #.now指最新价，详细属性见API文档
+    now1 = dyndata1.now
+    now2 = dyndata2.now
+    #打印最新价
+    log.info("159919最新价: " + str(dyndata1.now))
+    log.info("510050最新价: " + str(dyndata2.now))
+
+    #获取K线数据
+    #klinedata = GetHisData(code, BarType.Day)
+    #打印K线数据，如最新一根K线的最高价
+    option = PBObj()
+    option.EndDate = GetCurrentTime()
+    option.Count = 60
+    klist1 = GetHisDataByField(g.code1, BarType.Day, "close", option)
+    klist2 = GetHisDataByField(g.code2, BarType.Day, "close", option)
+  
+    if len(klist1)>0 and len(klist2)>0:
+        Kl1 = np.array(klist1, dtype=np.double)
+        Kl2 = np.array(klist2, dtype=np.double)
+        K=[Kl1,Kl2]
+        coff=np.corrcoef(K)[0][-1]
+        print "相关系数为 "+str(coff)
+     
