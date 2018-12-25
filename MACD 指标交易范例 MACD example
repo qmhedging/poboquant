@@ -1,0 +1,85 @@
+# coding:utf-8
+#!/usr/bin/env python
+
+from PoboAPI import *
+import datetime
+import numpy as np
+
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print "I\'m starting..."
+    #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
+    context.myacc = None
+    if context.accounts.has_key("回测期货") :
+        print "登录交易账号[回测期货]"
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]    
+
+def OnMarketQuotationInitial(context, marketid):
+    if marketid != 'SHFE':
+        return
+    #获取主力合约
+    g.code = GetMainContract('SHFE', 'rb',20)
+    print g.code
+
+    #订阅实时数据，用于驱动OnQuote事件
+    SubscribeQuote(g.code)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Day)
+    
+def OnOrderChange(context, AccountName, order) :
+    Test = context.accounts["回测期货"].GetOrder(order.id)
+    print str(Test.volume)
+    
+#实时行情事件，当有新行情出现时调用该事件
+def OnBar(context,code,bartype) :
+
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)
+    #创建均线
+    MACDindi = CreateIndicator("MACD")
+    #设定参数，也可以不设置，系统有自带的默认参数
+    param = {"SHORT":12,"LONG":26,"M":9} #fast and slow and ma days
+    MACDindi.SetParameter(param)
+    #设定要计算KDJ的品种和K线周期
+    MACDindi.Attach(g.code, BarType.Day)
+    #开始计算
+    MACDindi.Calc()
+    #获取计算结果，返回对应结果的list
+    diff = MACDindi.GetValue("DIF")
+    dea = MACDindi.GetValue("DEA")
+    posi = context.myacc.GetPositions()
+    if len(diff)<2:
+        return
+    #ma1上穿ma2时买入螺纹主力1手
+    elif diff[-1] >0 and dea [-1]>0 and  diff[-1]>dea [-1] and diff[-2]<=dea [-2] and len(posi)==0 :
+        print "to buy....diff "+str(diff[-1])+" dea "+str(dea[-1]) 
+        context.myacc.InsertOrder(g.code, BSType.BuyOpen, dyndata.now+5, 10) #提高委托价格，确保买入成交
+        bal=context.accounts["回测期货"].AccountBalance.AssetsBalance
+        print "账户金额 ："+str(bal)
+        #orders = context.accounts["回测期货"].GetOrder(order.id)
+        #print str(orders.volume)
+        #OnOrderChange(context, "回测期货", order)
+        print "发生交易："
+        option = PBObj()
+        option.buysellflag = '0'
+        TradeDetails = context.accounts["回测期货"].GetTradeDetails(option)
+        print TradeDetails
+        for i in TradeDetails:
+          print i
+          #print i.bstype.OffsetFlag
+        print '----------------'
+        pos = context.accounts["回测期货"].GetPositions(option)
+        print "期货持仓： ",pos
+        for i in pos:
+          print i.bstype.contract
+        print '----------------'
+        
+    #ma1下穿ma2时卖出平仓
+    elif diff[-1] <0 and dea [-1]<0 and diff[-1]<dea [-1] and diff[-2]>=dea [-2] and len(posi)>0 :
+        print "to sell..diff "+str(diff[-1])+" dea "+str(dea[-1]) 
+        context.myacc.InsertOrder(g.code, BSType.SellClose, dyndata.now-5, 10) #降低委托价格，确保卖出成交
+
