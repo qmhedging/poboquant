@@ -73,7 +73,7 @@ def OnQuote(context, code) :
     option = PBObj()
     option.EndDate = GetCurrentTime()
     option.Count = 60
-    #获取最近10天的最高价列表
+    #获取最近60天的收盘价列表
     klist = GetHisDataByField(g.code, BarType.Day, "close", option)
     if len(klist)>0:
         Kl = np.array(klist, dtype=np.double)
