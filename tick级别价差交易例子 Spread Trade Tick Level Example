@@ -1,0 +1,85 @@
+# coding:utf-8
+#!/usr/bin/env python
+
+from PoboAPI import *
+import datetime
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+  print "I\'m starting..."
+  #设定一个全局变量品种
+  g.code1 = "MA905.CZCE"
+  g.code2="MA909.CZCE"
+  accountname="simnow期货测试1"
+  #订阅实时数据，用于驱动OnQuote事件
+  SubscribeQuote([g.code1,g.code2])
+  #订阅K线数据，用于驱动OnBar事件
+  #SubscribeBar(g.code, BarType.Min)
+  #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
+  context.myacc = None
+  if context.accounts.has_key(accountname) :
+    print "登录交易账号 "+str(accountname)
+    if context.accounts[accountname].Login() :
+      context.myacc = context.accounts[accountname]
+  
+#实时行情事件，当有新行情出现时调用该事件
+def OnQuote(context, code) :
+  accountname="simnow期货测试1"
+  #过滤掉不需要的行情通知
+  
+  #if code != g.code1 or code!=g.code2 :
+  #  return 
+  
+  #获取最新行情
+  dyndataleg1 = GetQuote(g.code1)
+  dyndataleg2 = GetQuote(g.code2)
+  
+  #if dyndata :
+    #.now指最新价，详细属性见API文档
+  #  now1 = dyndata.now
+    #打印最新价
+  #  log.info("最新价: " + str(dyndata.now))
+
+  #获取K线数据
+  g.code1 = "MA905.CZCE"
+  g.code2="MA909.CZCE"
+  #klinedata3l = GetHisData(g.code1, BarType.Min3)
+  klinedataM1leg1 = GetHisData(g.code1, BarType.Min)
+  
+  #klinedata3v = GetHisData(g.code2, BarType.Min3)
+  klinedataM1leg2 = GetHisData(g.code2, BarType.Min)
+  
+  #spread3=klinedata3l[-2].low-klinedata3v[-2].close
+  #print "spread3 is " +str(spread3)
+  
+  spread1=klinedataM1leg1[-1].close-klinedataM1leg2[-1].close #1分钟价差
+  spreadt=dyndataleg1.now-dyndataleg2.now #tick价差
+  tradingtime=dyndataleg2.time
+  #print "spread1 is " +str(spread1)
+  option = PBObj()
+  option.buysellflag = '0' #查询持仓
+  pos = context.accounts[accountname].GetPositions(option)
+  #打印K线数据，如最新一根K线的最高价
+  #if len(klinedata3) > 0 and len(klinedata1)> 0:
+  #  lasthigh3 = klinedata3[-1].high
+  #  lasthigh1 = klinedata1[-1].high
+  #  log.info("最新3分钟K线的最高价: "  + str(lasthigh3))
+  #  log.info("最新1分钟K线的最高价: "  + str(lasthigh1))
+  #如果配置好交易账号了，可以根据条件下单，需把下面中的证券测试账号换成您设置的账号名称
+  if spread1-10>=spreadt and dyndataleg1.now>0.0 and dyndataleg2.now>0.0 and context.myacc and len(pos)==0 :
+      # 当日收盘价小于昨收则买入
+      print "满足价差开仓条件......."+str(spread1)+" "+str(spreadt)+" "+str(tradingtime)
+      context.myacc.InsertOrder(g.code1, BSType.BuyOpen, dyndataleg1.now, 20)
+      context.myacc.InsertOrder(g.code2, BSType.SellOpen, dyndataleg2.now, 20)
+  elif spread1+10<=spreadt and dyndataleg1.now>0.0  and dyndataleg2.now>0.0 and context.myacc and len(pos)>0 :
+      # 当日收盘价大于昨收则卖出
+      print "满足价差平仓条件......."+str(spread1)+" "+str(spreadt)+" "+str(tradingtime)
+      context.myacc.InsertOrder(g.code1, BSType.SellClose, dyndataleg1.now, 20)
+      context.myacc.InsertOrder(g.code2, BSType.BuyClose, dyndataleg2.now, 20)
+
+#委托回报事件，当有委托回报时调用
+def OnOrderChange(context, AccountName, order) :
+  #打印委托信息，id是编号，volume是数量，详细见API文档
+  print "委托编号： " + order.id + "   账号名称： " + AccountName
+  print "Vol: " + str(order.volume) + " Price: " + str(order.price)
+
