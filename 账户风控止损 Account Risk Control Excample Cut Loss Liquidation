@@ -37,7 +37,7 @@ def CutLoss(pos,context): #账户止损函数
     for i in pos:
         contractname=i.contract
         print "持仓合约： "+str(contractname)
-        contractExchange=str(contractname).split(".", 1)[1]
+        contractExchange=str(contractname).split(".", 1)[1]#读取交易所名称，即"m1901.DCE"的后半段
         print "合约交易所："+str(contractExchange) +str(len(contractExchange))
         
         NowPriceSet=GetQuote(contractname) #取合约 最新价格
