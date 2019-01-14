@@ -1,5 +1,6 @@
 # coding:utf-8
 #!/usr/bin/env python
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
 from PoboAPI import *
 def OnStart(context) :
     print "I\'m starting..."
