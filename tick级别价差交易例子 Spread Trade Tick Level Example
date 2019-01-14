@@ -3,6 +3,7 @@
 
 from PoboAPI import *
 import datetime
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
 #在tick级别回测
 #开始时间，用于初始化一些参数
 def OnStart(context) :
@@ -52,7 +53,7 @@ def OnQuote(context, code) :
   #spread3=klinedata3l[-2].low-klinedata3v[-2].close
   #print "spread3 is " +str(spread3)
   
-  spread1=klinedataM1leg1[-1].close-klinedataM1leg2[-1].close #1分钟价差
+  spread1=klinedataM1leg1[-2].close-klinedataM1leg2[-2].close #1分钟价差 选-1，-2，还是-3等看该价差对的历史表现，可以自己灵活调整
   spreadt=dyndataleg1.now-dyndataleg2.now #tick价差
   tradingtime=dyndataleg2.time
   #print "spread1 is " +str(spread1)
