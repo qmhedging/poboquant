@@ -4,6 +4,7 @@
 from PoboAPI import *
 import datetime
 import numpy as np
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
 #债券期货价差策略,10年期国债与5年期国债价差 spread trade on 10y and 5y bond futures
 def OnStart(context) :
     print "I\'m starting..."
