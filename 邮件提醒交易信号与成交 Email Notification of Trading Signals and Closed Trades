@@ -1,0 +1,198 @@
+# coding:utf-8
+#!/usr/bin/env python
+#用poboquant python实现，如果有问题 可加群 726895887 咨询
+from PoboAPI import *
+import datetime
+import numpy as np
+from email.header import Header
+
+import smtplib
+
+from email.mime.multipart import MIMEMultipart
+
+from email.mime.application import MIMEApplication
+
+from email.mime.text import MIMEText
+
+
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print "I\'m starting..."
+    #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
+    context.myacc = None
+    accountname="simnow期货测试1"
+    if context.accounts.has_key(accountname) :
+        print "登录交易账号[simnow期货]"
+        if context.accounts[accountname].Login() :
+            context.myacc = context.accounts[accountname]    
+
+def OnMarketQuotationInitial(context, marketid):
+    if marketid != 'SHFE':
+        return
+    #获取主力合约
+    g.code = GetMainContract('SHFE', 'rb',20)
+    print g.code
+
+    #订阅实时数据，用于驱动OnQuote事件
+    SubscribeQuote(g.code)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Min5)
+    
+def OnOrderChange(context, AccountName, order) :
+    accountname="simnow期货测试1"
+    Test = context.accounts[accountname].GetOrder(order.id)
+    print str(Test.volume)
+
+def SendEmail(emailcontent):#发送邮件的函数
+  
+    asender ='xxxxxxxxx@xxx.xxx'#发件邮箱
+    
+    areceiver='yyyyyy@yy.yyy' #收件邮箱
+  
+    asubject = Header('Trading Signal')#邮件标题
+  
+    asmtpserver = 'xxxx.xxx.xxx' #'smtp.qq.com'#发件邮箱smtp地址
+    
+    ausername = 'xxxxxxxxx@xxx.xxx'#'#发件邮箱用户名
+    
+    apassword = 'password' #'umgqwturdjycbagg'#发件邮箱密码
+  
+    msgroot = MIMEMultipart('related')
+    
+    msgroot['Subject'] = asubject
+    
+    msgroot['to'] = areceiver
+    
+    msgroot['from']	= asender 
+    
+    from email.MIMEText import MIMEText
+    
+    
+    thebody=MIMEText('condition met '+ emailcontent+',traded','plain', 'UTF-8') #邮件正文
+    thebody["Accept-Language"]="zh-CN"
+    thebody["Accept-Charset"]="UTF-8" #"UTF-8"
+    
+    msgroot.attach(thebody)
+    asmtp = smtplib.SMTP()
+    
+    asmtp.connect(asmtpserver)
+    
+    asmtp.login(ausername, apassword)
+    
+    asmtp.sendmail(asender, areceiver.split(','), msgroot.as_string())
+    
+    asmtp.quit()
+    
+    print "mail sending done."
+#实时行情事件，当有新行情出现时调用该事件
+def OnBar(context,code,bartype) :
+    accountname="simnow期货测试1"
+    #print "code is "+str(code)
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)
+    #创建均线
+    MACDindi = CreateIndicator("MACD")
+    #设定参数，也可以不设置，系统有自带的默认参数
+    param = {"SHORT":12,"LONG":26,"M":9} #fast and slow and ma days
+    MACDindi.SetParameter(param)
+    #设定要计算KDJ的品种和K线周期
+    MACDindi.Attach(g.code, BarType.Min5)
+    #开始计算
+    MACDindi.Calc()
+    #获取计算结果，返回对应结果的list
+    diff = MACDindi.GetValue("DIF")
+    dea = MACDindi.GetValue("DEA")
+    #posi = context.myacc.GetPositions()
+    bal=context.accounts[accountname].AccountBalance.AssetsBalance
+    LongPos=0
+    LongPosVolume=0
+    HoldingLongCost=0.0
+    ShortPos=0
+    ShortPosVolume=0
+    HoldingShortCost=0.0
+    option = PBObj()
+    #option.buysellflag = '0'
+    TradeDetails = context.accounts[accountname].GetTradeDetails(option)
+    #print TradeDetails
+    if len(TradeDetails)>0:
+        print "期货成交： "
+        for i in TradeDetails:
+            print str(i.contract)+" "+str(i.volume)+" "+str(i.price)
+          
+      #print i.bstype.OffsetFlag
+        print '----------------'
+    pos = context.accounts[accountname].GetPositions(option)
+    if len(pos)>0:
+        print "账户金额："+str(bal)
+        print "期货持仓： "#pos
+        for i in pos:
+            print str(i.contract)+" "+str(i.volume)+" "+str(i.openavgprice)+" "+str(i.bstype.BuySellFlag)
+            if str(i.bstype.BuySellFlag)=="0":
+                LongPos=1
+                print "long pos"
+                HoldingLongCost=float(i.openavgprice)
+                LongPosVolume=i.volume
+
+      
+            if str(i.bstype.BuySellFlag)=="1":
+                ShortPos=1
+                print "short pos"
+                HoldingShortCost=float(i.openavgprice)
+                ShortPosVolume=i.volume
+          
+        print '----------------'    
+    
+    #print　"len(diff)"+str(len(diff))
+    if len(diff)<2:
+        print "len(diff)<2" 
+        return
+    #ma1上穿ma2时买入螺纹主力1手
+    
+        
+    elif diff[-1] >0 and dea [-1]>0 and  diff[-1]>dea [-1]+0.4 and diff[-2]<=dea [-2] and LongPos==0:
+        print "to buy open...diff "+str(diff[-1])+" dea "+str(dea[-1]) 
+        context.myacc.InsertOrder(g.code, BSType.BuyOpen, dyndata.now+5, 50) #提高委托价格，确保买入成交
+        mailtext="macd up crossed, long opened"
+        SendEmail(mailtext)
+        
+        bal=context.accounts[accountname].AccountBalance.AssetsBalance
+        print "账户金额2 ："+str(bal)
+        #orders = context.accounts["回测期货"].GetOrder(order.id)
+        #print str(orders.volume)
+        #OnOrderChange(context, "回测期货", order)
+        print "发生交易："
+
+        
+    #ma1下穿ma2时卖出平仓
+    elif diff[-1] <0 and dea[-1]<0 and diff[-1]<dea[-1] and diff[-2]>=dea[-2] and len(pos)>0 and LongPos==1 or dyndata.now<HoldingLongCost-10:
+        print "to sell close..diff "+str(diff[-1])+" dea "+str(dea[-1])
+        if dyndata.now<HoldingLongCost-10:
+            print "止损平仓-------------------------------------"
+
+        context.myacc.InsertOrder(g.code, BSType.SellClose, dyndata.now-5, LongPosVolume) #降低委托价格，确保卖出成交
+        mailtext="macd down crossed, long closed"
+        SendEmail(mailtext)
+    
+    elif diff[-1] <0 and dea[-1]<0 and diff[-1]+0.4<dea[-1] and diff[-2]>=dea[-2] and ShortPos==0:
+        print "to sell open...diff "+str(diff[-1])+" dea "+str(dea[-1]) 
+        context.myacc.InsertOrder(g.code, BSType.SellOpen, dyndata.now-5, 50) #降低委托价格，确保卖开成交
+        mailtext="macd down crossed, short open"
+        SendEmail(mailtext)
+        bal=context.accounts[accountname].AccountBalance.AssetsBalance
+        print "账户金额2 ："+str(bal)
+        #orders = context.accounts["回测期货"].GetOrder(order.id)
+        #print str(orders.volume)
+        #OnOrderChange(context, "回测期货", order)
+        print "发生交易："
+    
+    elif diff[-1] >0 and dea[-1]>0 and diff[-1]>dea[-1] and diff[-2]<=dea[-2] and len(pos)>0 and ShortPos==1 or dyndata.now>HoldingShortCost+10:
+        print "reach here"
+        print "to buy close..diff "+str(diff[-1])+" dea "+str(dea[-1])+" "+str(ShortPos)
+        if dyndata.now>HoldingShortCost+10:
+            print "买入止损平仓-------------------------------------"
+        context.myacc.InsertOrder(g.code, BSType.BuyClose, dyndata.now+5, ShortPosVolume) #降低委托价格，确保卖出成交
+        mailtext="macd up crossed，short closed "
+        SendEmail(mailtext)
