@@ -3,6 +3,7 @@
 from PoboAPI import *
 import datetime
 import numpy as np
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
 #根据白糖期货的历史波动率 做白糖期权 跨式策略
 #long sugar price volatility, when historical volatility below 10% long strangle,volatility over 20% ,close the strangle 
 #开始时间，用于初始化一些参数
