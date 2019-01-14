@@ -3,7 +3,8 @@
 
 from PoboAPI import *
 import datetime
-#回测的时候最好自己选好期权还在交易的日期段，pick the date range the options in trading
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
+#回测的时候最好自己选好期权还在交易的日期段，否则回测会不能进行 pick the date range the options in trading or back test will hault
 #这是豆粕1901 看涨3000和看涨3050的价差套利，在豆粕牛市中，看涨期权价差也会拉大
 #A spread trade strategy of DCE soybean meal 1901 call 3000 and 3050
 #开始时间，用于初始化一些参数
