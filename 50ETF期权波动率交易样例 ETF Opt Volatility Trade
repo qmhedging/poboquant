@@ -4,6 +4,7 @@ from PoboAPI import *
 import datetime
 import time
 import numpy as np
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
 #这是一个卖空波动率的50ETF期权策略样例
 #开始时间，用于初始化一些参数
 def OnStart(context) :
