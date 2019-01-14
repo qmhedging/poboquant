@@ -3,6 +3,7 @@
 from PoboAPI import *
 import datetime
 import numpy as np
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
 #上证50指数期货 和 50ETF期权的对冲交易，当ETF隐含波动率较高时就买IH期货并做空ETF看涨期权
 #Hedge IH Index Futures with 50ETF call options, open positions when IV's high
 #开始时间，用于初始化一些参数
