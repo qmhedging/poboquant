@@ -3,6 +3,7 @@
 from PoboAPI import *
 import datetime
 import numpy as np
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
 #做空豆粕期权隐含波动率策略，比如你认为豆粕期权隐含波动率随着到期临近会持续下降
 #short soybean meal implied volatility, like you believe the IV will decline when expire date appoaching
 #开始时间，用于初始化一些参数
