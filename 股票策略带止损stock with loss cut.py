@@ -2,7 +2,7 @@
 #!/usr/bin/env python
 from PoboAPI import *
 import datetime
-
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
 #开始时间，用于初始化一些参数
 def OnStart(context) :
     print "I\'m starting..."
