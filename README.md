@@ -5,7 +5,9 @@ visit https://quant.pobo.net.cn/quant/login#/
 
 with invitation code 
 814685
-Options Tick Level Backtest supported
+Options Tick Level Backtest supported.
+
+Python Strategy Runs on Poboquant Platform， for both back test and live trading. 
 
 API Doc is here https://quant.pobo.net.cn/quant/doc?name=api
 
@@ -16,6 +18,8 @@ To connect Simnow account https://github.com/qmhedging/poboquant/wiki/%E4%BA%91%
 澎博财经 量化策略研究平台 
 
 欢迎访问 https://quant.pobo.net.cn/quant/login#/
+
+Python策略代码可在Poboquant平台运行回测与实盘交易
 
 注册时 使用 邀请码 814685
 
