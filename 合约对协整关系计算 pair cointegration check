@@ -1,12 +1,12 @@
 # coding:utf-8
 #!/usr/bin/env python
-
 from PoboAPI import *
 import datetime
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 from pandas import DataFrame,Series
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
 #日线级别回测，注意选择合约上市后的时间段，计算的是过去30日的数据
 #开始时间，用于初始化一些参数
 def OnStart(context) :
