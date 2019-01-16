@@ -1,0 +1,94 @@
+# coding:utf-8
+#!/usr/bin/env python
+
+from PoboAPI import *
+import datetime
+import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+from pandas import DataFrame,Series
+#日线级别回测，注意选择合约上市后的时间段，计算的是过去30日的数据
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print "I\'m starting..."
+    #设定一个全局变量品种
+    accountname="回测期货"
+    g.code1 = "J1901.DCE"
+    g.code2 = "JM1901.DCE"
+    #订阅实时数据，用于驱动OnQuote事件
+    SubscribeQuote([g.code1,g.code2])
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar([g.code1,g.code2], BarType.Day)
+    #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
+    context.myacc = None
+    if context.accounts.has_key(accountname) :
+        print "登录交易账号 "+str(accountname)
+        if context.accounts[accountname].Login() :
+            context.myacc = context.accounts[accountname]
+
+#实时行情事件，当有新行情出现时调用该事件
+def find_cointegrated_pairs(dataframe): #计算 协整关系
+    n = dataframe.shape[1]
+    pvalue_matrix = np.ones((n, n))
+    keys = dataframe.keys()
+    pairs = []
+    for i in range(1,n):
+        for j in range(i+1, n):
+            stock1 = dataframe[keys[i]]
+            stock2 = dataframe[keys[j]]
+            result = sm.tsa.stattools.coint(stock1, stock2)
+            pvalue = result[1]
+            pvalue_matrix[i, j] = pvalue
+            #if pvalue >0:  #< 0.05
+            pairs.append((keys[i], keys[j], pvalue))
+    return pairs
+
+def OnQuote(context, code) :
+    #过滤掉不需要的行情通知
+    #if code != g.code1 :
+    #  return 
+    i=0
+    #获取最新行情
+    dyndata1 = GetQuote(g.code1)
+    dyndata2 = GetQuote(g.code2)
+    tradingtime=GetQuote(g.code1).time#获取50ETF交易时间，用于计算波动率
+    print "tradingtime ",tradingtime
+    if dyndata1 and dyndata2 :
+        #.now指最新价，详细属性见API文档
+        now1 = dyndata1.now
+        now2 = dyndata2.now
+        #打印最新价
+        log.info("最新价: " + str(dyndata1.now)+" "+str(dyndata2.now))
+        CalOBJ = CreateCalcObj() #创建一个计算对象
+        option = PBObj()
+        yearstring=int(tradingtime.year)
+        monthstring=int(tradingtime.month)
+        daystring=int(tradingtime.day)
+        option.EndDate=datetime.datetime(yearstring,monthstring,daystring)
+        option.Count = 31 #取过去30日数据
+        klist = [[],[],[]]
+    #获取K线数据
+        klinedata1 = GetHisData(g.code1, BarType.Day,option)
+        klinedata2 = GetHisData(g.code2, BarType.Day,option)
+
+        datalength=len(klinedata1)#取得数据长度
+        #print "datalength "+str(datalength)+str(klinedata1[0].close)+str(klinedata2[0].close)
+
+        while i<len(klinedata1)-1:
+                        #print "previous trading day" +str(klinedata0[i].tradedate)
+                        #print "previous prices "+str(klinedata0[i].close)
+            klist[0].append(klinedata1[i].tradedate) 
+            klist[1].append(klinedata1[i].close) # 
+            klist[2].append(klinedata2[i].close)
+
+            i+=1
+
+        df=pd.DataFrame({str("date"):klist[0],str(g.code1):klist[1],str(g.code2):klist[2]})
+        df=df[['date',g.code1,g.code2]]
+        df.set_index("date")
+
+
+        pairs= find_cointegrated_pairs(df) #计算p值
+
+        print str("pair :")+str(pairs)#+" "+str("p-value: ")+str(pvalues)
+
