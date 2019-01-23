@@ -1,0 +1,83 @@
+# coding:utf-8
+#!/usr/bin/env python
+
+from PoboAPI import *
+import datetime
+import numpy as np
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+  print "I\'m starting..."
+  #设定一个全局变量品种
+  g.code = "TA905.CZCE"
+  accountname="回测期货"
+  #订阅实时数据，用于驱动OnQuote事件
+  SubscribeQuote(g.code)
+  #订阅K线数据，用于驱动OnBar事件
+  SubscribeBar(g.code, BarType.Day)
+  #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
+  context.myacc = None
+  if context.accounts.has_key(accountname) :
+    print "登录交易账号："+str(accountname)
+    if context.accounts[accountname].Login() :
+      context.myacc = context.accounts[accountname]
+
+def STDCal(code, daynum, tradingtime):#计算标准差
+  CalOBJ = CreateCalcObj() #创建一个计算对象
+  option = PBObj()
+  yearstring=int(tradingtime.year)
+  monthstring=int(tradingtime.month)
+  daystring=int(tradingtime.day)
+  option.EndDate=datetime.datetime(yearstring,monthstring,daystring)
+  option.Count = daynum #取过去n日数据
+  klinedata1 = GetHisData(code, BarType.Day,option)
+  datalength=len(klinedata1)#取得数据长度
+  i=datalength
+  a=[]#初始化保存收盘价的数组
+  while i>=1:
+    PriceClose=klinedata1[i-1].close
+    a.append(PriceClose)
+    i=i-1
+  STDResult=np.std(a, ddof = 1) #可参考 https://blog.csdn.net/Gooooa/article/details/78923469
+  return STDResult 
+  
+#实时行情事件，当有新行情出现时调用该事件
+def OnQuote(context, code) :
+  #过滤掉不需要的行情通知
+  if code != g.code :
+    return 
+  dyndata1 = GetQuote(g.code)
+  #dyndata2 = GetQuote(g.code2)
+  tradingtime=GetQuote(g.code).time#获取50ETF交易时间，用于计算波动率
+  print "tradingtime ",tradingtime
+  
+  STD17=STDCal(g.code,17,tradingtime)#用函数计算标准差
+  
+  print "STD is "+str(STD17)
+  #获取最新行情
+  #dyndata = GetQuote(code)
+  #if dyndata :
+    #.now指最新价，详细属性见API文档
+  #  now1 = dyndata.now
+    #打印最新价
+  #  log.info("最新价: " + str(dyndata.now))
+
+  #获取K线数据
+  #klinedata = GetHisData(code, BarType.Day)
+  #打印K线数据，如最新一根K线的最高价
+  #if len(klinedata) > 0 :
+  #  lasthigh = klinedata[-1].high
+  #  log.info("最新K线的最高价: "  + str(lasthigh))
+  #如果配置好交易账号了，可以根据条件下单，需把下面中的证券测试账号换成您设置的账号名称
+  #if len(klinedata) > 1 and klinedata[-1].close < klinedata[-2].close and context.myacc :
+      # 当日收盘价小于昨收则买入
+  #    context.myacc.InsertOrder(code, BSType.Buy, dyndata.now, 10000)
+  #elif len(klinedata) > 1 and klinedata[-1].close > klinedata[-2].close and context.myacc :
+      # 当日收盘价大于昨收则卖出
+  #    context.myacc.InsertOrder(code, BSType.Sell, dyndata.now, 10000)
+
+#委托回报事件，当有委托回报时调用
+#def OnOrderChange(context, AccountName, order) :
+#  #打印委托信息，id是编号，volume是数量，详细见API文档
+#  print "委托编号： " + order.id + "   账号名称： " + AccountName
+#  print "Vol: " + str(order.volume) + " Price: " + str(order.price)
+
