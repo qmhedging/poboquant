@@ -1,5 +1,5 @@
 # poboquant
-quant strategy backtesting from pobo financial
+quant strategy backtesting and live trading platform from pobo financial
 
 visit https://quant.pobo.net.cn/quant/login#/
 
@@ -15,7 +15,7 @@ any issue, please post or contact me via qq 350052799
 
 To connect Simnow account https://github.com/qmhedging/poboquant/wiki/%E4%BA%91%E9%87%8F%E5%8C%96-%E4%BD%BF%E7%94%A8%E6%8A%80%E5%B7%A7-Poboquant-Tips
 
-澎博财经 量化策略研究平台 
+澎博财经 量化策略研究与实盘交易平台 
 
 欢迎访问 https://quant.pobo.net.cn/quant/login#/
 
