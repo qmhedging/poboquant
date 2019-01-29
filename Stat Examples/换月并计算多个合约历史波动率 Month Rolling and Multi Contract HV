@@ -1,0 +1,99 @@
+# coding:utf-8
+#!/usr/bin/env python
+#换月并计算历史波动率
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
+from PoboAPI import *
+import datetime
+import numpy as np
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+  print "I\'m starting..."
+  #设定一个全局变量品种
+  g.codesub = "510050.SHSE"
+  #g.code2="MA909.CZCE"
+  accountname="回测期货"
+  CurrentDay=GetCurrentTime()
+  print "CurrentDay "+str(CurrentDay)
+  Currenttradingtime=GetCurrentTime()
+  #if code != g.code1 or code!=g.code2 :
+  #  return
+  contract1="CF"
+  contract2="CF"
+  g.code1 = str(GetMonthRotation(CurrentDay,contract1,contract2)[0])+str(".CZCE")
+  g.code2=  str(GetMonthRotation(CurrentDay,contract1,contract2)[1])+str(".CZCE")
+  #订阅实时数据，用于驱动OnQuote事件
+  SubscribeQuote([g.code1,g.code2])
+  #订阅K线数据，用于驱动OnBar事件
+  #SubscribeBar(g.code, BarType.Min)
+  #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
+  context.myacc = None
+  if context.accounts.has_key(accountname) :
+    print "登录交易账号 "+str(accountname)
+    if context.accounts[accountname].Login() :
+      context.myacc = context.accounts[accountname]
+
+
+
+def GetMonthRotation(CurrentDay,contractleg1,contractleg2):#一个简单的换月函数
+  
+  
+  yearstring=int(CurrentDay.year)
+  monthstring=int(CurrentDay.month)
+  daystring=int(CurrentDay.day)
+  
+  if monthstring>=1 and monthstring<=3 :
+             # ma            9                     05    vs    ma           9             09
+    return [contractleg1+str((str(yearstring))[-1])+str("05"),contractleg1+str((str(yearstring))[-1])+str("09")]
+  
+  if monthstring>=4 and monthstring<=7:
+            # ma                 9                   09      ma          0                      01
+    return [contractleg1+str((str(yearstring))[-1])+str("09"),contractleg1+str((str(yearstring+1))[-1])+str("01")]
+  
+  if monthstring>=8 and monthstring<=11:
+    
+    return [contractleg1+str((str(yearstring+1))[-1])+str("01"),contractleg1+str((str(yearstring+1))[-1])+str("05")]  
+  
+  if monthstring==12:
+    
+    return [contractleg1+str((str(yearstring+1))[-1])+str("05"),contractleg1+str((str(yearstring+1))[-1])+str("09")] 
+  
+
+def GetVolatility(code,histdays,currentday):#参数：合约、历史天数、当天日期
+  #print "code"+str(code)
+  CalOBJ = CreateCalcObj() #创建一个计算对象
+  option = PBObj()
+  option.EndDate=currentday#datetime.datetime(yearstring,monthstring,daystring)
+  option.Count = histdays+1 #计算 n 天历史波动率 
+  klinedata0 = GetHisData(code, BarType.Day, option)
+  
+  klist = []
+  i=0
+  while i<len(klinedata0)-1:
+      klist.append(klinedata0[i].close) #
+      #print "close price"+str(klinedata0[i].close)
+      i+=1
+  if len(klist)>0:
+      #print "len(klist)"+str(len(klist))
+      Kl = np.array(klist, dtype=np.double)
+      HisVola=CalOBJ.GetVolatility(Kl) #得到历史波动率
+  return HisVola
+  
+  
+def OnQuote(context, code) :
+  #accountname="回测期货"
+  #过滤掉不需要的行情通知
+  CurrentDay=GetCurrentTime()
+  print "CurrentDay "+str(CurrentDay)
+
+  contract1="CF"
+  contract2="CF"
+  g.code1 = str(GetMonthRotation(CurrentDay,contract1,contract2)[0])+str(".CZCE")
+  g.code2=  str(GetMonthRotation(CurrentDay,contract1,contract2)[1])+str(".CZCE")
+  print "codes: "+str(g.code1)+" "+str(g.code2)
+  SubscribeBar([g.code1,g.code2], BarType.Day)
+  #获取最新行情
+  vola1=GetVolatility(g.code1,30,CurrentDay)
+  vola2=GetVolatility(g.code2,30,CurrentDay)
+  print ('{} {}'.format(round(vola1,4),round(vola2,4)))
+
