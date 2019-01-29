@@ -18,7 +18,7 @@ def OnStart(context) :
   Currenttradingtime=GetCurrentTime()
   #if code != g.code1 or code!=g.code2 :
   #  return
-  contract1="CF"
+  contract1="CF" #以棉花为例
   contract2="CF"
   g.code1 = str(GetMonthRotation(CurrentDay,contract1,contract2)[0])+str(".CZCE")
   g.code2=  str(GetMonthRotation(CurrentDay,contract1,contract2)[1])+str(".CZCE")
@@ -86,7 +86,7 @@ def OnQuote(context, code) :
   CurrentDay=GetCurrentTime()
   print "CurrentDay "+str(CurrentDay)
 
-  contract1="CF"
+  contract1="CF" #以棉花为例 计算两个主力合约历史波动率
   contract2="CF"
   g.code1 = str(GetMonthRotation(CurrentDay,contract1,contract2)[0])+str(".CZCE")
   g.code2=  str(GetMonthRotation(CurrentDay,contract1,contract2)[1])+str(".CZCE")
