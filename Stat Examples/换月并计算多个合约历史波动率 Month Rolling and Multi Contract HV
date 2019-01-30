@@ -42,19 +42,19 @@ def GetMonthRotation(CurrentDay,contractleg1,contractleg2):#一个简单的换�
   monthstring=int(CurrentDay.month)
   daystring=int(CurrentDay.day)
   
-  if monthstring>=1 and monthstring<=3 :
+  if monthstring>=1 and monthstring<=3 :# 1-3月 取主力合约 5月和9月
              # ma            9                     05    vs    ma           9             09
     return [contractleg1+str((str(yearstring))[-1])+str("05"),contractleg1+str((str(yearstring))[-1])+str("09")]
   
-  if monthstring>=4 and monthstring<=7:
+  if monthstring>=4 and monthstring<=7: #4-7月 取主力合约 9月和次年1月
             # ma                 9                   09      ma          0                      01
     return [contractleg1+str((str(yearstring))[-1])+str("09"),contractleg1+str((str(yearstring+1))[-1])+str("01")]
   
-  if monthstring>=8 and monthstring<=11:
+  if monthstring>=8 and monthstring<=11:#8-11月取主力合约 次年1月和次年5月
     
     return [contractleg1+str((str(yearstring+1))[-1])+str("01"),contractleg1+str((str(yearstring+1))[-1])+str("05")]  
   
-  if monthstring==12:
+  if monthstring==12: #12月  取主力合约 次年5月和次年9月
     
     return [contractleg1+str((str(yearstring+1))[-1])+str("05"),contractleg1+str((str(yearstring+1))[-1])+str("09")] 
   
