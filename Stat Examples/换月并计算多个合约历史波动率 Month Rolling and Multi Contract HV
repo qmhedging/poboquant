@@ -36,7 +36,7 @@ def OnStart(context) :
 
 
 def GetMonthRotation(CurrentDay,contractleg1,contractleg2):#一个简单的换月函数
-  
+  #a simple month rolling function,picking the two most traded contracts
   
   yearstring=int(CurrentDay.year)
   monthstring=int(CurrentDay.month)
