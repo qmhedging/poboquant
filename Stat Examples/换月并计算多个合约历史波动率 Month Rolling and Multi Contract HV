@@ -59,7 +59,7 @@ def GetMonthRotation(CurrentDay,contractleg1,contractleg2):#一个简单的换�
     return [contractleg1+str((str(yearstring+1))[-1])+str("05"),contractleg1+str((str(yearstring+1))[-1])+str("09")] 
   
 
-def GetVolatility(code,histdays,currentday):#参数：合约、历史天数、当天日期
+def GetVolatility(code,histdays,currentday):#计算历史波动率函数 参数：合约、历史天数、当天日期
   #print "code"+str(code)
   CalOBJ = CreateCalcObj() #创建一个计算对象
   option = PBObj()
@@ -93,7 +93,7 @@ def OnQuote(context, code) :
   print "codes: "+str(g.code1)+" "+str(g.code2)
   SubscribeBar([g.code1,g.code2], BarType.Day)
   #获取最新行情
-  vola1=GetVolatility(g.code1,30,CurrentDay)
+  vola1=GetVolatility(g.code1,30,CurrentDay)#计算30日历史波动率
   vola2=GetVolatility(g.code2,30,CurrentDay)
   print ('{} {}'.format(round(vola1,4),round(vola2,4)))
 
