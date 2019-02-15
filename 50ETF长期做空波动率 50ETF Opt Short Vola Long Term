@@ -42,16 +42,11 @@ def Getop(code): #查询虚值期权合约
 def stime(op): #计算到期日
     info1 = GetContractInfo(op)
     kill = info1['行权到期日']
-    print str(type(kill))
+
     cutime = GetCurrentTime()
-    if cutime.day <10:
-        cutim = str(cutime.year) + str(cutime.month) + '0' +str(cutime.day)
-    elif cutime.month <10:
-        cutim = str(cutime.year) + '0' + str(cutime.month) +str(cutime.day)
-    else:
-        cutim = str(cutime.year) + str(cutime.month) +str(cutime.day)
-    cu = int(cutim)
-    n = kill - cu
+    c = cutime.date()
+    n = (kill - c).days
+    print n
     return n
     
 #实时行情事件，当有新行情出现时调用该事件
