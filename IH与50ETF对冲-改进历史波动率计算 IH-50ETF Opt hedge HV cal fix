@@ -12,11 +12,11 @@ def OnStart(context) :
     #设定一个全局变量品种
     
     g.code0 = "510050.SHSE"
-    g.code1 = "10001315.SHSE" # 50ETF购12月2600
-    g.code2="IH1812.CFFEX"
+    #g.code1 = "10001315.SHSE" # 50ETF购12月2600
+    #g.code2="IH1812.CFFEX"
 
     #订阅实时数据，用于驱动OnQuote事件
-    SubscribeQuote([g.code1,g.code0,g.code2]) #批量订阅行情
+    SubscribeQuote(g.code0) #批量订阅行情
     #订阅K线数据，用于驱动OnBar事件
     #SubscribeBar(g.code1, BarType.Day)
 
@@ -32,23 +32,113 @@ def OnStart(context) :
         print "登录交易账号[回测期货]"
         if context.accounts["回测期货"].Login() :
             context.myaccFUT = context.accounts["回测期货"]        
+def GetMonthRotation2(CurrentDay,contractleg1,contractleg2):
   
+  #print "in function"+str(CurrentDay) # month rolling for financialstock index futures
+  yearstring=int(CurrentDay.year)
+  monthstring=int(CurrentDay.month)
+  daystring=int(CurrentDay.day)
+  
+  if daystring<15: #股指为合约到期月份第三个周五
+    
+    if monthstring<10:
+      
+      return [contractleg1+str((str(yearstring))[2:4])+str("0")+str(monthstring),contractleg2+str((str(yearstring))[2:4])+str("0")+str(monthstring)]
+      
+    if monthstring>=10:
+      
+      return [contractleg1+str((str(yearstring))[2:4])+str(monthstring),contractleg2+str((str(yearstring))[2:4])+str(monthstring)]
+  
+  if daystring>=15:
+    
+    if monthstring<9:
+      
+      return [contractleg1+str((str(yearstring))[2:4])+str("0")+str(monthstring+1),contractleg2+str((str(yearstring))[2:4])+str("0")+str(monthstring+1)]
+    
+    if monthstring>=9 and monthstring<11:
+      
+      return [contractleg1+str((str(yearstring))[2:4])+str(monthstring+1),contractleg2+str((str(yearstring))[2:4])+str(monthstring+1)]
+    
+    if monthstring==11:
+      
+      return [contractleg1+str((str(yearstring))[2:4])+str("12"),contractleg1+str((str(yearstring))[2:4])+str("12")]
+    
+    if monthstring==12:
+      
+      return [contractleg1+str((str(yearstring+1))[2:4])+str("01"),contractleg1+str((str(yearstring+1))[2:4])+str("01")]
+      
+      
+    
+#   if monthstring>=1 and monthstring<3 :
+#              # ma            9                     05    vs    ma           9             09
+#     return [contractleg1+str((str(yearstring))[2:4])+str("03"),contractleg2+str((str(yearstring))[2:4])+str("03")]
+  
+#   if monthstring>=3 and monthstring<6:
+#             # ma                 9                   09      ma          0                      01
+#     return [contractleg1+str((str(yearstring))[2:4])+str("06"),contractleg2+str((str(yearstring))[2:4])+str("06")]
+  
+
+  
+#   if monthstring>=6 and monthstring<9:
+    
+#     return [contractleg1+str((str(yearstring))[2:4])+str("09"),contractleg2+str((str(yearstring))[2:4])+str("09")]
+  
+#   if monthstring>=9 and monthstring<=12:
+    
+#     return [contractleg1+str((str(yearstring+1))[2:4])+str("03"),contractleg1+str((str(yearstring))[2:4])+str("03")]  
+
+def Getop(code):#获取期权合约，包括call和put合约
+    dyndata = GetQuote(code)
+    now1 = dyndata.now
+    now50 = round(now1,1) + 0.05
+    cutime = GetCurrentTime()
+    if cutime.day >15 and cutime.month<12:
+        tim = cutime.month + 1
+        month_time = datetime.datetime(month=tim, year=cutime.year,day = 20)
+    elif cutime.day >15 and cutime.month==12:
+        tim = 1
+        yea = cutime.year + 1
+        month_time = datetime.datetime(month=tim, year=yea,day = 20) 
+    else:
+        month_time = cutime
+    atmopc = GetAtmOptionContract(code,month_time,now50,0)
+    atmopp = GetAtmOptionContract(code,month_time,now50,1)
+    return atmopc,atmopp
+
+def GetDaystoExpire(op):#计算期权到期日
+    info1 = GetContractInfo(op)
+    kill = info1['行权到期日']
+
+    cutime = GetCurrentTime()
+    c = cutime.date()
+    n = (kill - c).days
+    print n
+    
 #实时行情事件，当有新行情出现时调用该事件
 def OnQuote(context, code) :
+    g.code0="510050.SHSE"
+    tradingdate=GetCurrentTime().date()#获取当前日期
+    FutContract = "IH"
+    contract1=FutContract
+    contract2=FutContract
+    g.code1 = str(GetMonthRotation2(tradingdate,contract1,contract2)[0])+str(".CFFEX")#获取IH股指期货合约
+    print "g.code1",g.code1
+    opc,opp = Getop(g.code0)#获取期权合约代码
     #获取最新行情
     dyndata1 = GetQuote(g.code1).now#.now指最新价，详细属性见API文档
     dyndata0 = GetQuote(g.code0).now
-    dyndata2 = GetQuote(g.code2).now
+    dyndata2 = GetQuote(opc).now
     tradingtime=GetQuote(g.code0).time#获取50ETF交易时间，用于计算波动率
+    
     print "tradingtime ",tradingtime
     if dyndata1 and dyndata0 and dyndata2 :        
         now1 = dyndata1
         now0 = dyndata0
         now2 = dyndata2
         #打印最新价
-        log.info("50ETF购12月2600: " + str(dyndata1))
+        log.info("50ETF买权最新价: " + str(dyndata2))
         log.info("510050最新价: " + str(dyndata0))
-        log.info("IH1812最新价:" + str(dyndata2))        
+        log.info("IH股指期货最新价:" + str(dyndata1))        
                
         #klinedata0 = GetHisData(g.code0, BarType.Day)#获取K线数据         
         CalOBJ = CreateCalcObj() #创建一个计算对象
@@ -61,20 +151,14 @@ def OnQuote(context, code) :
         #准备计算50ETF的历史波动率
 
         option.EndDate=datetime.datetime(yearstring,monthstring,daystring)
-        option.Count = 31 #计算50ETF 30天历史波动率 
-        klinedata0 = GetHisData(g.code0, BarType.Day, option)
+        option.Count = 30 #计算50ETF 30天历史波动率 
+        klinedata0 = GetHisDataByField(g.code0, BarType.Day,"close",option)
         #print "len(klinedata) ",len(klinedata)
-        klist = []
-        i=0
-        while i<len(klinedata0)-1:
-            #print "previous trading day" +str(klinedata0[i].tradedate)
-            #print "previous prices "+str(klinedata0[i].close)
-            klist.append(klinedata0[i].close) #  
-            i+=1
-        if len(klist)>0:
-            Kl = np.array(klist, dtype=np.double)
-            HisVola=CalOBJ.GetVolatility(Kl) #得到历史波动率
-        print "30D HisVola "+str(HisVola)
+        if len(klinedata0)>0:
+            Kl = np.array(klinedata0, dtype=np.double)
+            HisVola=CalOBJ.GetVolatility(Kl)        
+            print HisVola 
+
         
         OptDirection=0 # 0 for call, 1 for put
         
@@ -82,22 +166,22 @@ def OnQuote(context, code) :
         
         AssetPrice=now0 # here is the 510050 price
         print "AssetPrice ",AssetPrice
-        StrikePrice=2.6 # for 50ETF购12月2600 strike price
+        StrikePrice=round(now0,1) + 0.05 # for 50ETF购12月2600 strike price
         
-        InterestRate=4.5*0.01 # the risk free interest rate 
+        InterestRate=4.35*0.01 # the risk free interest rate 
         print "g.code ",g.code0
         #dates=GetOptionsLastDates("m1901.DCE")# not working
         #dates=GetOptionsLastDates("SR901C6000.CZCE") # not working 
         #dates=GetOptionsLastDates("510050.SHSE")#  working
         #dates=GetOptionsLastDates("m1805-C-3300.DCE")
-        dates=datetime.datetime(2018,12,26) # expire date for 50ETF购12月2600 options 
-        
-        print "dates of expire ",str(dates)
+        OptInfo = GetContractInfo(opc)#查询期权信息
+        ExpDates=OptInfo['行权到期日']
+        print "dates of expire ",str(ExpDates)
         
         #ExpireinYear=(GetOptionsLastDates(g.code1) - tradingtime).days / 365.0 # years to expire
-        ExpireinYear=(dates - tradingtime).days / 365.0 # years to expire
+        ExpireinYear=(ExpDates - tradingdate).days / 365.0 # years to expire
         print "ExpireinYear ",ExpireinYear
-        OptionPrice=now1 # for option price
+        OptionPrice=now2 # for option price
         
         
         #calculate the implied volatility
@@ -120,28 +204,56 @@ def OnQuote(context, code) :
         print "持仓合约数： "+str(poslength)
         #如果配置好交易账号了，可以根据条件下单，需把下面中的证券测试账号换成您设置的账号名称
         #if len(klinedata1) > 1  and ImpliedVola>0.23 and context.myaccOPT and context.myaccFUT  and posmargin<600000 :
-        if  ImpliedVola>0.23   and posmargin<600000 :
+        if  ImpliedVola>0.20   and posmargin<600000 :
             # 
             print "open positions with IV at "+str(ImpliedVola)
             print "trading day "+str(tradingtime)
             print "期权持仓市值 "+str(posmargin)
-            context.myaccOPT.InsertOrder(g.code1, BSType.SellOpen, dyndata1, 30)#sell options
-            context.myaccFUT.InsertOrder(g.code2, BSType.BuyOpen, dyndata2, 1)#buy ETF
+            context.myaccOPT.InsertOrder(opc, BSType.SellOpen, dyndata2, 30)#sell options
+            context.myaccFUT.InsertOrder(g.code1, BSType.BuyOpen, dyndata1, 1)#buy IH futures
             
             
-        if  ImpliedVola<0.18 and poslength>0 :
+        if  ImpliedVola<0.14 and poslength>0 :
             # 
             print "Close positions,take profit with IV"+str(ImpliedVola)
             print "trading day "+str(tradingtime)
-            context.myaccOPT.InsertOrder(g.code1, BSType.BuyClose, dyndata1, 30)
-            context.myaccFUT.InsertOrder(g.code2, BSType.SellClose, dyndata2, 1)
+            context.myaccOPT.InsertOrder(opc, BSType.BuyClose, dyndata2, 30)
+            context.myaccFUT.InsertOrder(g.code1, BSType.SellClose, dyndata1, 1)
         
-        if  ImpliedVola>0.30 and poslength>0 :
+        if  ImpliedVola>0.25 and poslength>0 :
             # 
             print "sell close the spread,cut loss with IV "+str(ImpliedVola)
             print "trading day "+str(tradingtime)
-            context.myaccOPT.InsertOrder(g.code1, BSType.BuyClose, dyndata1, 30)
-            context.myaccFUT.InsertOrder(g.code2, BSType.SellClose, dyndata2, 1)    
+            context.myaccOPT.InsertOrder(opc, BSType.BuyClose, dyndata2, 30)
+            context.myaccFUT.InsertOrder(g.code1, BSType.SellClose, dyndata1, 1)
+        if  poslength>0:
+            
+            FutPos = context.myaccFUT.GetPositions()
+            
+            if len(FutPos)>0:
+            
+                for i in FutPos:
+
+                    if i.contract<>g.code1:#处理头寸换月 rolling positions
+                        
+                        FutClosePrice=GetQuote(i.contract)
+                        FutCloseVolume=i.availvolume
+                        print "平仓快到期期货头寸"
+                        context.myaccOPT.InsertOrder(opc, BSType.BuyClose, dyndata2, 30*FutCloseVolume)
+                        context.myaccFUT.InsertOrder(i.contract, BSType.SellClose, FutClosePrice, FutCloseVolume)
+                    
+                for t in pos:
+                    
+                      if GetDaystoExpire(t.contract)<=3:
+                          OptClosePrice=GetQuote(t.contract)
+                          OptCloseVolume=t.availvolume
+                          print "平仓快到期期权头寸"
+                          context.myaccOPT.InsertOrder(i.contract, BSType.BuyClose, OptClosePrice, OptCloseVolume)
+                          context.myaccFUT.InsertOrder(g.code1, BSType.SellClose, dyndata1, round(OptCloseVolume/30))
+            
+            
+            
+            
 
 #委托回报事件，当有委托回报时调用
 def OnOrderChange(context, AccountName, order) :
