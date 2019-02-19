@@ -5,7 +5,7 @@ import datetime
 import time
 import numpy as np
 #用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
-#这是一个卖空波动率的50ETF期权策略样例
+#这是一个卖空波动率的50ETF期权策略样例,在日线级别测试
 #开始时间，用于初始化一些参数
 def OnStart(context) :
     print "I\'m starting..."
@@ -50,8 +50,8 @@ def stime(op):
         cutim = str(cutime.year) + '0' + str(cutime.month) +str(cutime.day)
     else:
         cutim = str(cutime.year) + str(cutime.month) +str(cutime.day)
-    cu = int(cutim)
-    n = kill - cu
+    #cu = int(cutim)
+    n = (kill - cutime.date()).days #这里的到期日计算进行了更新 于 20190219
     return n
     
 #实时行情事件，当有新行情出现时调用该事件
@@ -103,7 +103,7 @@ def OnQuote(context, code) :
         ki1 = info1['行权到期日']
         info2 = GetContractInfo(opcode2)
         pr2 = info2['行权价格']
-        sy = stime(opcode1)
+        sy = int(stime(opcode1))
         print str(pr1) + '行权价格'
         print str(pr2) + '行权价格2'
         print sy
