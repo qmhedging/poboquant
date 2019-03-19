@@ -1,0 +1,12 @@
+def getAllMainContracts(  ):#获取所有主力期货合约 get all main futures contract
+    ForbiddenProduct =['RS','RI','WH' ,'JR','LR','CY','LR','wr','fb']#禁止订阅和交易的品种
+    market_exchange=['SHFE','DCE','CZCE','CFFEX']
+    MainContracts=[]
+    for exchange in market_exchange:
+         Varieties = GetVarieties(exchange)#获取某个市场所有品种
+         for item in Varieties:
+            if item not in ForbiddenProduct :#
+             cur_MainContracts_symbol = GetMainContract(exchange, item,20) #获取某个市场某个品种的主力合约
+             if len(cur_MainContracts_symbol)>0   :
+                MainContracts.append(cur_MainContracts_symbol)   
+    return  MainContracts   
