@@ -1,0 +1,7 @@
+def getMinPriceTick(code):#最小变动价位,1跳的变化 #get the min tick of contract
+    Exchange = GetExchangeByCode(code)
+    codeinfo = GetVarietyInfo(Exchange,GetVarietyByCode(code))   #return info list of a contract
+    nValue=codeinfo.get("最小变动价位")
+    if nValue is None:
+        return 0
+    return nValue 
