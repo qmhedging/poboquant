@@ -1,0 +1,125 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import collections
+import datetime
+# on tick level 仅供参考 不保证盈利 这是一个单边交易策略
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
+def OnStart(context) :
+    print "I\'m starting..."
+    #g.code = "TA901.CZCE" #works for TA MA day 6 4
+    #g.code= GetMainContract('CZCE', 'TA',20)
+    #g.code="cu1905C49000.SHFE"#"m1905-C-2500.DCE"#"10001731.SHSE"#"510050.SHSE" #"510050.SHSE"#"10001620.SHSE"#"600500.SHSE" "10001727.SHSE" "ta905.CZCE"
+    #g.code="10001731.SHSE"
+    #g.code = "510050.SHSE"
+    g.code = GetMainContract('CZCE', 'rm',20)
+    g.accountname="回测期货"#"回测期货"#"回测证券"
+    SubscribeQuote(g.code)
+    #SubscribeBar(g.code,BarType.Min)
+    g.priceseries=collections.deque(maxlen=20) #初始化deque
+    if context.accounts.has_key(g.accountname) :
+        print "登录交易账号 ：" + str(g.accountname)
+        context.accounts[g.accountname].Login()
+        print "账户登录成功"
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange == 'CZCE' and daynight == 'night':
+        print '郑商所夜盘行情开盘时重登交易账号'
+        context.accounts[g.accountname].Logout()
+        context.accounts[g.accountname].Login()
+    if exchange == 'CZCE' and daynight == 'day':
+        print '郑商所日盘行情开盘时重登交易账号'
+        context.accounts[g.accountname].Logout()
+        context.accounts[g.accountname].Login()    
+
+def OnOrderChange(context, AccountName, order) :
+    Test = context.accounts[g.accountname].GetOrder(order.id)
+    print "order info "+str(Test.volume)+"  "+str(Test.id)
+    print "order status"+str(Test.IsCanCancel())
+    
+        
+def OnQuote(context,code) :
+    g.code = GetMainContract('CZCE', 'rm',20)
+    print "g.code "+str(g.code)
+    dyndata = GetQuote(g.code)
+    print str(g.accountname)
+
+    now1 = dyndata.now
+    if now1<>0.0:
+        g.priceseries.append(now1)
+        print str(g.priceseries)
+    
+    pos = context.accounts[g.accountname].GetPositions()
+    #print str(pos)+"len pos "+str(len(pos))
+    bal = context.accounts[g.accountname].AccountBalance
+    #floatprofit=bal.FloatingProfit
+    holdingpositions=0
+#     exchange = GetVarieties('SHFE')
+#     print exchange
+# #     for i in exchange:
+        
+# #         print i,exchange[i]
+#     list1 = GetFuturesContracts2('m',exchange_code = 'auto')
+#     print list1    
+    posfloatingprofit=0
+    openprice=10000
+    longpos=0
+    if len(pos)>0:
+        
+        
+        
+        for i in pos:
+            
+            if i.contract==g.code:
+                
+                longpos=longpos+1
+            
+                holdingpositions=i.availvolume
+                
+                openprice=i.openavgprice
+                
+                posfloatingprofit=(now1-openprice)*10
+        print "longpos"+str(longpos)
+        
+        
+        
+    
+    if len(g.priceseries)==20:
+        
+        counter=0.0
+        
+        if g.priceseries[19]<g.priceseries[13]-2 and g.priceseries[18]<g.priceseries[10]-2 and g.priceseries[19]<=g.priceseries[17] :
+            
+            counter=1
+        if g.priceseries[19]>g.priceseries[13]+4 and g.priceseries[17]>g.priceseries[10]+3 and now1>openprice+12:
+            counter=-1
+        
+#         for i in range(len(g.priceseries)-1):
+            
+#             if g.priceseries[i+1]>g.priceseries[i]:
+                
+#                 #counter+=1*(1+(i+1.0)/10.0)
+                
+        #print "counter "+str(counter)+" "+ str(round(10*counter,0))        
+#     option = PBObj()
+#     klinedata = GetHisData(g.code, BarType.Day, option)
+    
+#     if klinedata[len(klinedata)-1].close < klinedata[len(klinedata)-2].close :
+#         # 当日收盘价小于昨收则买入     
+#         context.accounts["回测证券"].InsertOrder("600050.SHSE", BSType.Buy, dyndata.now, 10000)
+#     elif klinedata[len(klinedata)-1].close > klinedata[len(klinedata)-2].close :
+#         # 当日收盘价大于昨收则卖出
+#         context.accounts["回测证券"].InsertOrder(code, BSType.Sell, dyndata.now, 10000)
+        if counter==1 and (len(pos)==0 or longpos<3):
+            # 当日收盘价小于昨收则买入   #(counter<5 and len(pos)>0)
+            print "time to buy-------------"
+            #print "buy at "+str(dyndata.askprice(0)-4)
+            context.accounts[g.accountname].InsertOrder(g.code, BSType.BuyOpen, dyndata.askprice(0)+1, 2)
+            #orderinfo=context.accounts[g.accountname].GetOrder()
+            #print "order id is ........"+str(orderinfo.id)
+        elif (counter==-1 and len(pos)>0) or (posfloatingprofit>300) :
+            # 当日收盘价大于昨收则卖出
+            print "sell"
+            context.accounts[g.accountname].InsertOrder(g.code, BSType.SellClose, dyndata.bidprice(0), min(holdingpositions,longpos))
+
+
+
