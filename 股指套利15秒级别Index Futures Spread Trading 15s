@@ -1,0 +1,115 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+from pandas import Series, DataFrame
+import pandas as pd
+
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
+#开始时间，用于初始化一些参数,tick级别回测
+#展示如何将tick级别数据转为15秒级别调用，仍有优化空间，很多细节可以补充
+def OnStart(context) :
+    print "I\'m starting..."
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    context.myacc = None
+    #g.PriceSeries=[]
+    if context.accounts.has_key("回测期货") :
+        print "登录交易账号[回测期货]"
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    g.PriceSeries=[]
+    g.PriceSeries=pd.DataFrame(columns=['time','spread'])
+    #g.PriceSeries=g.PriceSeries.set_index('time')
+# #
+#         return
+    #获取主力合约
+    #g.code = GetMainContract('SHFE', 'rb',20)
+    #订阅K线数据，用于驱动OnBar事件
+    #SubscribeBar(g.code, BarType.Day)
+    g.code1 = "IF1905.CFFEX"  
+    g.code2 = "IF1906.CFFEX"  
+    #SubscribeQuote([g.code1,g.code2])
+    SubscribeQuote([g.code1])
+    
+#def GetResample    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnQuote(context, code):
+    
+    option = PBObj()
+  
+    pos = context.myacc.GetPositions(option)
+    
+    newdata=[]
+    
+    dyndata1 = GetQuote(g.code1)
+    dyndata2 = GetQuote(g.code2)
+    now1 = dyndata1.now
+    now2 = dyndata2.now
+    #print str(now1)+" "+str(now2)
+    if now1<>0 and now2<>0:
+        
+        spread=now1-now2
+        
+        print "spread "+str(spread)        
+        
+        pricetime=GetCurrentTime()
+
+        print "price "+str(now1)
+        
+        #newdata=pd.DataFrame({'time':pricetime,'spread':spread},ignore_index=True)
+
+        #g.PriceSeries=g.PriceSeries.append(newdata)
+        g.PriceSeries=g.PriceSeries.append([{'time':pricetime,'spread':spread}],ignore_index=True)
+        #g.PriceSeries=g.PriceSeries.set_index('time')
+        
+        #g.PriceSeries
+
+        #print "series "+str(g.PriceSeries)
+        
+    if len(g.PriceSeries)>30 and len(g.PriceSeries)%30 == 0:
+        
+        spread15s=g.PriceSeries.iloc[-1:]["spread"].values[0]
+        
+        #print "spread15s "+str(spread15s)
+        #print "with time "+str(g.PriceSeries.iloc[-1:]["time"].values[0])
+    
+        if spread15s<=13 and now1>0.0 and now2>0.0 and context.myacc and len(pos)==0 :
+          # 当日收盘价小于昨收则买入
+              print "满足价差开仓条件......."+str(spread15s)+" "+str(pricetime)
+              context.myacc.InsertOrder(g.code1, BSType.BuyOpen, now1, 20)
+              context.myacc.InsertOrder(g.code2, BSType.SellOpen, now2, 20)
+        elif spread15s>=22 and now1>0.0  and now2>0.0 and context.myacc and len(pos)>0 :
+          # 当日收盘价大于昨收则卖出
+              print "满足价差平仓条件......."+str(spread15s)+" "+str(pricetime)
+              context.myacc.InsertOrder(g.code1, BSType.SellClose, now1, 20)
+              context.myacc.InsertOrder(g.code2, BSType.BuyClose, now2, 20)
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+# def OnBar(context,code,bartype) :
+#     #过滤掉不需要的行情通知
+#     if code != g.code:
+#         return
+#     dyndata = GetQuote(g.code)
+#     #计算均线
+#     MA = GetIndicator("MA",code,params=(5,10),bar_type = BarType.Day)
+#     MA1 = MA["MA(5)"]
+#     MA2 = MA["MA(10)"]
+#     if len(MA2)<2:
+#         return
+#     #ma1上穿ma2时买入螺纹主力1手
+#     elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:
+#         QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now,1)
+#     #ma1下穿ma2时卖出平仓
+#     elif MA1[-1] <= MA2[-1] and MA1[-2]>MA2[-2]:
+#         QuickInsertOrder(context.myacc,g.code,'sell','close',dyndata.now,1)
