@@ -1,0 +1,90 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+
+#演示如何依次成交 a,b,c顺序
+#demo of how to use OnTradeDeal to monitor order status and make trade following the plan
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print "I\'m starting..."
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    g.tradedflag=[0,0,0]
+    context.myacc = None
+    if context.accounts.has_key("回测期货") :
+        print "登录交易账号[回测期货]"
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'DCE':
+        return
+    #获取主力合约
+    g.code1 = GetMainContract('DCE', 'a',20)
+    g.code2 = GetMainContract('DCE', 'b',20)
+    g.code3 = GetMainContract('DCE', 'c',20)
+    
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code1, BarType.Min) 
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype) :
+    #过滤掉不需要的行情通知
+    g.contractset=[g.code1,g.code2,g.code3]
+    
+    if code not in g.contractset:
+        return
+    dyndata1 = GetQuote(g.code1)
+    dyndata2 = GetQuote(g.code2)
+    dyndata3 = GetQuote(g.code3)
+    #计算均线
+    MA = GetIndicator("MA",g.code1,params=(5,10),bar_type = BarType.Min)
+    MA1 = MA["MA(5)"]
+    MA2 = MA["MA(10)"]
+    if len(MA2)<2:
+        return
+    #ma1上穿ma2时买入第一个合约主力1手
+    if MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2] and g.tradedflag[0]==0:
+        print "买开第一个合约"
+        QuickInsertOrder(context.myacc,g.code1,'buy','open',dyndata1.now+2,1)
+    if g.tradedflag[0]==1 and g.tradedflag[1]==0: #and g.tradedflag[2]==0: #第一个合约已经成交时，交易第二个合约
+        print "买开第二个合约"
+        QuickInsertOrder(context.myacc,g.code2,'buy','open',dyndata2.now+2,1)
+    if g.tradedflag[1]==1 and g.tradedflag[2]==0:
+        print "买开第三个合约"
+        QuickInsertOrder(context.myacc,g.code3,'buy','open',dyndata3.now+2,1)
+            
+    #ma1下穿ma2时卖出平仓
+    elif MA1[-1] <= MA2[-1] and MA1[-2]>MA2[-2]:
+        QuickInsertOrder(context.myacc,g.code1,'sell','close',dyndata1.now,1)
+
+def OnTradeDeal(context, AccountName, trade) :
+    TR = context.accounts["回测期货"].GetTradeDetail(trade.id, trade.bstype.BuySellFlag)
+    print "------------OnTradeDeal查询------------"
+    print "成交合约："+str(TR.contract)
+    print '成交价格:' + str(TR.price)
+    print "委托编号："+str(TR.orderid)
+    print "成交编号 ："+str(TR.id)
+    
+    #判断成交，改变状态变量
+    if TR.contract==g.contractset[0] and TR.volume==1 and TR.bstype.BuySellFlag=="0":
+        
+        g.tradedflag[0]=1
+        print "第一个合约已经成交"
+        print str(g.tradedflag)
+    
+    if TR.contract==g.contractset[1] and TR.volume==1 and TR.bstype.BuySellFlag=="0":
+        
+        g.tradedflag[1]=1
+        print "第二个合约已经成交"
+        print str(g.tradedflag)
+        
+    if TR.contract==g.contractset[2] and TR.volume==1 and TR.bstype.BuySellFlag=="0":
+
+        g.tradedflag[2]=1
+        print "第二个合约已经成交"
+        print str(g.tradedflag)
+        
+        
+        
