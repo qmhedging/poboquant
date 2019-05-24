@@ -1,0 +1,95 @@
+#获取某档位期权合约—GetAtmOptionContract2 王鼎砚 
+#object_stock_code：期权标的代码,可由GetOptionObjects获取
+#excute_date：期权合约月份,格式如datetime.datetime(2018,3,1),写之前,需import datetime；指18年3月份到期的期权合约,年份和月份有意义,日期值无意义,写几号都可以；也可以直接输入整数：0代表当月,1代表下月,2代表下季,3代表隔季；
+#期货期权的话,月份由object_stock_code期权标的代码决定,直接填None就可以了
+#pricetype：标的价格类型，str类型,"lastclose"为昨日收盘价,"open"为今日开盘价,"now"为最新价,默认为昨日收盘价
+#position： 标的价格档位，int类型,例如-1,-2,-3分别表示虚1，虚2，虚3，1，2，3表示实1，实2，实3，0表示平值合约
+#option_type：0代表认购期权,1代表认沽期权 
+def GetAtmOptionContract2( object_stock_code, pricetype, position, option_type, excute_date = None ):
+    dyndata = GetQuote( object_stock_code )
+    if pricetype == "lastclose":
+        stockprice = dyndata.lastclose
+    elif pricetype == "open":
+        stockprice = dyndata.open
+    elif pricetype == "now":
+        stockprice = dyndata.now
+        #stockprice = 48000
+        print "stockprice "+str(stockprice)
+    if option_type == 0:
+        if object_stock_code[0] == "5":
+            if stockprice < 3:
+                roundingprice = round( stockprice * 20 ) / 20
+                price = roundingprice - 0.05 * position   
+                if price >= 3:
+                    position0 = ( 3 - roundingprice  ) / 0.05
+                    price = 3 - ( position + position0 ) * 0.1
+            if stockprice >= 3:
+                roundingprice = round( stockprice * 10 ) / 10
+                price = roundingprice - 0.1 * position
+                if price < 3:
+                    position0 = ( roundingprice - 3 ) / 0.1
+                    price = 3 - 0.05 * ( position - position0 )
+        if object_stock_code[0] == "s" or object_stock_code[0] == "S":
+            price = round( stockprice / 100 ) * 100 - 100 * position
+        if object_stock_code[0] == "m" or object_stock_code[0] == "M":
+            price = round( stockprice / 50 ) * 50 - 50 * position
+        if object_stock_code[0] == "c" or object_stock_code[0] == "C":
+            if object_stock_code[1] == "u" or object_stock_code[0] == "U":
+                price = round( stockprice / 1000 ) * 1000 - 1000 * position   
+            elif object_stock_code[1] == "f" or object_stock_code[0] == "F":   
+                price = round( stockprice / 200 ) * 200 - 200 * position
+            else:
+                price = round( stockprice / 20 ) * 20 - 20 * position
+        if object_stock_code[0] == "r" or object_stock_code[0] == "R": 
+            if stockprice > 10000:
+                roundingprice = round( stockprice / 250 ) * 250
+                price = roundingprice - 250 * position
+                if price < 10000:
+                    position0 = ( roundingprice - 10000 ) / 250
+                    price = 10000 - 100 * ( position - position0 )
+            if stockprice <= 10000:
+                roundingprice = round( stockprice / 100 ) * 100
+                price = roundingprice - 100 * position
+                if price > 10000:
+                    position0 = ( 10000 - roundingprice  ) / 100
+                    price = 10000 - 250 * ( position + position0 )                
+    elif option_type == 1:
+        if object_stock_code[0] == "5":
+            if stockprice < 3:            
+                roundingprice = round( stockprice * 20 ) / 20
+                price = roundingprice + 0.05 * position   
+                if price >= 3:
+                    position0 = ( 3 - roundingprice  ) / 0.05
+                    price = 3 + ( position - position0 ) * 0.1
+            if stockprice >= 3:
+                roundingprice = round( stockprice * 10 ) / 10
+                price = roundingprice + 0.1 * position
+                if price < 3:
+                    position0 = ( roundingprice - 3 ) / 0.1
+                    price = 3 + 0.05 * ( position + position0 )        
+        if object_stock_code[0] == "s" or object_stock_code[0] == "S":
+            price = round( stockprice / 100 ) * 100 + 100 * position
+        if object_stock_code[0] == "m" or object_stock_code[0] == "M":
+            price = round( stockprice / 50 ) * 50 + 50 * position
+        if object_stock_code[0] == "c" or object_stock_code[0] == "C":
+            if object_stock_code[1] == "u" or object_stock_code[0] == "U":
+                price = round( stockprice / 1000 ) * 1000 + 1000 * position   
+            elif object_stock_code[1] == "f" or object_stock_code[0] == "F":   
+                price = round( stockprice / 200 ) * 200 + 200 * position
+            else:
+                price = round( stockprice / 20 ) * 20 + 20 * position
+        if object_stock_code[0] == "r" or object_stock_code[0] == "R": 
+            if stockprice > 10000:
+                roundingprice = round( stockprice / 250 ) * 250
+                price = roundingprice + 250 * position
+                if price < 10000:
+                    position0 = ( roundingprice - 10000 ) / 250
+                    price = 10000 + 100 * ( position + position0 )
+            if stockprice <= 10000:
+                roundingprice = round( stockprice / 100 ) * 100
+                price = roundingprice + 100 * position
+                if price > 10000:
+                    position0 = ( 10000 - roundingprice  ) / 100
+                    price = 10000 + 250 * ( position - position0 )   
+    atmop = GetAtmOptionContract( object_stock_code, excute_date, price, option_type)
+    return atmop
