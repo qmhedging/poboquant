@@ -32,7 +32,7 @@ def CutPrice(price,percent,buyorsell): #生成止损平仓价格 （平仓价，
     
     return float(cutprice)
 
-def CutLoss(pos,context): #账户止损函数
+def CutLoss(pos,context): #账户止损函数,实现完全清仓
     print "开始止损-------------------------------------------------------------------"
     for i in pos:
         contractname=i.contract
@@ -136,7 +136,7 @@ def OnQuote(context, code) :
         bal=balset.AssetsBalance
         print "balance is "+str(bal)
 
-        if bal<=CutBalance : #判断是否止损
+        if bal<=CutBalance : #判断是否止损，即权益触及规定止损权益
 
             print "Balance to cut loss is "+str(bal)      
             option = PBObj()      
