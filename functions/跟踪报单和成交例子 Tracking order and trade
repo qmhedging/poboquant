@@ -1,0 +1,21 @@
+def OnOrderChange(context, AccountName, order) :
+    #print "OrderChanged on " + order.id + " on " + AccountName
+    #orderinfo=context.accounts["回测期货"].GetOrder(order.id)
+    print "-----------OnOrderChange查询-----------"
+    print "委托合约 "+str(order.contract)
+    print "委托数量 "+str(order.volume)
+    print "委托是否可撤 "+str(order.IsCanCancel())
+    print "委托买卖方向"+str(order.bstype.BuySellFlag)
+    print "委托编号 orderID "+str(order.id)
+    print "委托状态 "+str(order.status)
+    print "状态解释：0代表初始状态,4代表正在申报,5代表委托单已申报,32代表已完成(终止状态,部成部撤或全部成交),33：下单出错终止"
+    
+    
+    
+def OnTradeDeal(context, AccountName, trade) :
+    #TR = context.accounts["回测期货"].GetTradeDetail(trade.id, trade.bstype.BuySellFlag)
+    print "------------OnTradeDeal查询------------"
+    print "成交合约："+str(trade.contract)
+    print '成交价格:' + str(trade.price)
+    print "委托编号："+str(trade.orderid)
+    print "成交编号 ："+str(trade.id)
