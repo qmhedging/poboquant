@@ -1,0 +1,8 @@
+def GetCurrentDayTime(CurrentDay,addhours,addminutes,addseconds): #取日期时间函数，比如设定当天的10：00：02 可以写成 GetCurrentDayTime(CurrentDay,10,0,2)
+    #print "reached function"
+    yearstring=int(CurrentDay.year)
+    #print "yearstring=int(tradingtime.year)",int(CurrentDay.year)
+    monthstring=int(CurrentDay.month)
+    daystring=int(CurrentDay.day)
+    CurrentDayTime= datetime.datetime(yearstring,monthstring,daystring,addhours,addminutes,addseconds)#time of market opening
+    return CurrentDayTime 
