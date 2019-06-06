@@ -1,0 +1,27 @@
+def OnTradeDeal(context, AccountName, trade) :
+    #print "TradeDealed on " + trade.id + " on " + AccountName
+    print "有成交------------------------------------"
+    print "tradeid "+str(trade.id)+" orderid "+str(trade.orderid)+" price "+str(trade.price)+" vol "+str(trade.volume)
+    pos = context.accounts[g.accountname].GetPositions()#收到成交回报，更新持仓   
+    
+    if len(pos)>0:
+        
+        g.longpos=0
+        g.holdingpositions=0
+        
+        dyndata = GetQuote(g.code)  
+
+        now1 = dyndata.now
+        #这个例子仅查多头持仓
+        for i in pos:
+
+            if i.contract==g.code:
+
+                g.longpos=g.longpos+i.volume #总持仓，用于统计还有多少仓位没成交
+
+                g.holdingpositions=g.holdingpositions+i.availvolume #总可用持仓，用于计算可委托量
+
+                openprice=i.openavgprice
+
+                g.posfloatingprofit=(now1-openprice)*10 #计算浮盈
+        print "holdpos 可用持仓量 "+str(g.holdingpositions) +" 总持仓量 "+str(g.longpos)
