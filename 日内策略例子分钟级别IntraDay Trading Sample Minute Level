@@ -1,0 +1,306 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+## E00muCounter2
+#双向交易 分钟级策略 演示用ontradedeal进行仓位控制
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print "I\'m starting..."
+    
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    g.code = GetMainContract('DCE', 'j',20)
+
+    #SubscribeBar(g.code, BarType.Day)
+    #SubscribeBar(g.code, BarType.Min5)
+    g.accountname="回测期货"#"sim1130532"#"吕东simnow"#"回测期货"#"回测证券"#改成自己的账户即可
+    SubscribeQuote(g.code)
+    g.tradevolume=10 #可交易头寸
+    #SubscribeBar(g.code,BarType.Min)
+    #g.priceseries=collections.deque(maxlen=20) #初始化deque
+    if context.accounts.has_key(g.accountname) :
+        print "登录交易账号 ：" + str(g.accountname)
+        context.accounts[g.accountname].Login()
+        context.myacc = context.accounts[g.accountname]
+        print "账户登录成功"
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    print "on market ini"
+    #print str(exchange)
+    if exchange!= 'DCE':
+        return
+   # 获取主力合约
+    
+    g.code = GetMainContract('DCE','j',20)
+
+    SubscribeBar(g.code, BarType.Min15)
+    print "订阅 code in market ini "+str(g.code)
+    g.daysignal=0 #日线信号
+    g.balancesingal=1#资金量信号
+    g.longlock=0 #0可买开仓，1不可买开仓
+    g.shortlock=0#0可卖开，1不可卖开
+    #g.change_flag = 0 #换月信号
+    #订阅K线数据，用于驱动OnBar事件
+    #SubscribeBar(g.code,BarType.Day)
+    #SubscribeBar(g.code,BarType.Min5)
+#     if exchange == 'DCE' and daynight == 'night'and context.myacc:
+#         print '大商所夜盘行情开盘时重登交易账号'
+#         context.myacc.Logout()
+#         context.myacc.Login()
+#     if exchange == 'DCE' and daynight == 'day'and context.myacc:
+#         print '大商所日盘行情开盘时重登交易账号'
+#         context.myacc.Logout()
+#         context.myacc.Login()
+    option = PBObj()
+    g.pos = context.accounts[g.accountname].GetPositions(option)
+    g.longholdingpos=0
+    g.shortholdingpos=0
+    if len(g.pos)>0:
+        print "开始盘前持仓检查"
+        for i in g.pos:
+            if i.contract==g.code and i.availvolume>0  and i.bstype.BuySellFlag=="0":
+                g.longholdingpos=i.availvolume
+                print "盘前有多头持仓 "+str(g.longholdingpos)
+                if g.longholdingpos>=g.tradevolume:
+                    g.longlock=1
+            if i.contract==g.code and i.availvolume>0  and i.bstype.BuySellFlag=="1":
+                g.shortholdingpos=i.availvolume
+                print "盘前有空头持仓 "+str(g.shortholdingpos)
+                if g.shortholdingpos>=g.tradevolume:
+                    g.shortlock=1
+def OnTradeAccountDisconnected(context, accountname):
+    print '断线啦'
+    context.myacc.Logout()
+    g.timer = SetTimer(60)
+    print '开启定时器'
+
+def OnTimer(context, timerid) :
+    if timerid ==g.timer:
+        print '定时器开始-准备自动重连'
+        if context.myacc.Login():
+            print '重连成功啦'
+            KillTimer(g.timer)
+            print '结束定时器'   
+        
+# def OnQuote(context,code) :
+#     print '调用到OnQuote事件'
+
+def GetCurrentDayTime(CurrentDay,addhours,addminutes,addseconds): #取日期时间函数，比如设定当天的10：00：02 可以写成 GetCurrentDayTime(CurrentDay,10,0,2)
+    #print "reached function"
+    yearstring=int(CurrentDay.year)
+    #print "yearstring=int(tradingtime.year)",int(CurrentDay.year)
+    monthstring=int(CurrentDay.month)
+    daystring=int(CurrentDay.day)
+    CurrentDayTime= datetime.datetime(yearstring,monthstring,daystring,addhours,addminutes,addseconds)#time of market opening
+    return CurrentDayTime 
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype):
+    #过滤掉不需要的行情通知
+    #5分钟收盘高于5日均线买入1手，或者10手，如果5分钟收盘，低于10均线卖出平仓
+    print "on bar"
+#     Currenttradingtime=GetCurrentTime()#取当前时间
+
+#     CurrentDay=GetCurrentTime()  
+    
+    
+    #检查持仓，看是否需要换月
+    option = PBObj()
+    #option.buysellflag = '0'
+    print "开始OnBar持仓检查"
+    pos = context.accounts[g.accountname].GetPositions(option)
+    #print pos
+    #换月
+    if len(pos)>0:
+        
+        for i in pos:
+            if i.contract<>g.code and GetVarietyByCode(g.code)==GetVarietyByCode(i.contract): #出现需要换月持仓,判断是同品种
+                print "有持仓需要换月 "+str(i.contract) +" vs current "+str(g.code)
+                print "---------------------------------------------需要换月---------------"
+                if i.bstype.BuySellFlag=="0":#买持仓
+                    print "换月：平多头-----------------------"
+                    closepricedata=GetQuote(i.contract)
+                    closeprice=closepricedata.now
+                    QuickInsertOrder(context.myacc,i.contract,'sell','close',PriceType(PbPriceType.Limit,16,0),i.availvolume)
+                    context.myacc.InsertOrder(i.contract, BSType.SellClose, closeprice-40, i.availvolume)#卖平
+                    context.myacc.InsertOrder(i.contract, BSType.SellCloseToday, closeprice-40, i.availvolume)#卖平
+                    
+                    
+                if i.bstype.BuySellFlag=="1":#卖持仓
+                    print "换月：平空头-----------------------"
+                    QuickInsertOrder(context.myacc,i.contract,'buy','close',PriceType(PbPriceType.Limit,16,0),i.availvolume)
+                    closepricedata=GetQuote(i.contract)
+                    closeprice=closepricedata.now
+                    context.myacc.InsertOrder(i.contract, BSType.BuyClose, closeprice+40, i.availvolume)#买平
+                    context.myacc.InsertOrder(i.contract, BSType.BuyCloseToday, closeprice+40, i.availvolume)#买平
+                    
+            else:#已经持有主力合约仓位
+                if i.bstype.BuySellFlag=="0":#持有为主力合约的多头
+                    g.longlock=1#不可开多头
+                    g.holdingpos=i.availvolume
+                    
+                    
+            
+    else:
+        
+        print "无持仓需要换月"
+        
+    bal = context.accounts[g.accountname].AccountBalance
+#     cashbal=bal.AvailableCashBalance
+#     asset=bal.AssetsBalance
+    riskdegree=bal.RiskDegree 
+    if riskdegree >0.99:
+        
+        print "cash / asset " +str(riskdegree)
+        g.balancesingal=0 #仓位控制
+        print "too many positions,can't trade"
+    else:
+        g.balancesingal=1
+    print "资金量信号为 "+str(g.balancesingal)
+    option = PBObj()
+    g.pos = context.accounts[g.accountname].GetPositions(option)
+    g.longholdingpos=0
+    g.shortholdingpos=0
+    if len(g.pos)>0:
+        print "开始盘中持仓检查"
+        for i in g.pos:
+            if i.contract==g.code and i.availvolume>0  and i.bstype.BuySellFlag=="0":
+                g.longholdingpos=i.availvolume
+                if g.longholdingpos>=g.tradevolume:
+                    g.longlock=1
+            if i.contract==g.code and i.availvolume>0  and i.bstype.BuySellFlag=="1":
+                g.shortholdingpos=i.availvolume
+                if g.shortholdingpos>=g.tradevolume:
+                    g.shortlock=1
+                
+    else:
+        print "盘中持仓为0"
+    print "code " +str(g.code)  
+#     if code != g.code:
+#         return
+    dyndata = GetQuote(g.code)
+    price5min=dyndata.now
+    print "price5min "+str(price5min)
+    option5 = PBObj()
+    option5.Count = 5#5日均线
+    option5.EndDate=GetCurrentTime()
+    #日线判断
+    klinedata5 = GetHisData(g.code, BarType.Day, option5)
+    print "len(klinedata) 5 days "+str(len(klinedata5))
+#     if klinedata[len(klinedata)-1].close < klinedata[len(klinedata)-2].close :
+#         g.daysignal=1 #日线符合开仓条件
+#     elif klinedata[len(klinedata)-1].close > klinedata[len(klinedata)-2].close:
+#         g.daysignal=-1 #日线符合平仓条件
+    i=0
+    klist=[]
+    closesum=0
+    
+    #print "5日 len(klinedata)"+str(len(klinedata))
+    
+    while i <len(klinedata5):#计算五日均线
+        closesum=closesum+klinedata5[i].close
+        #print "Day "+str(i)+str(klinedata5[i].close)+" date"+str(klinedata5[i].tradedate)
+        i+=1
+        
+    ma5Minclose=closesum/5
+    print "5日均线为："+str(ma5Minclose)
+    
+
+    
+    option10 = PBObj()
+    option10.Count = 10#10日均线
+    option10.EndDate=GetCurrentTime()
+    klinedata10 = GetHisData(g.code, BarType.Day, option10)
+    print "len(klinedata) 10 days "+str(len(klinedata10))
+    
+    i=0
+    klist=[]
+    closesum=0
+    
+    while i <len(klinedata10): #计算10日均线
+        closesum=closesum+klinedata10[i].close
+        #print "Day "+str(i)+str(klinedata10[i].close)+" date"+str(klinedata10[i].tradedate)
+        
+        i+=1
+        
+    ma10Minclose=closesum/10
+    print "10日均线为："+str(ma10Minclose)
+    
+    if price5min > ma5Minclose and g.balancesingal==1 and g.longlock==0 :
+        #5分钟收盘高于5日均线买入
+        print "15分钟收盘高于5日均线买入:买开-------------------------------"
+        if g.longlock==0 and dyndata.now>0.0:
+            context.myacc.InsertOrder(g.code, BSType.BuyOpen, dyndata.now+2, g.tradevolume) #买开
+        if g.shortholdingpos>0 and dyndata.now>0.0:
+            print "有空头持仓，开始买平---------------------------"
+            context.myacc.InsertOrder(g.code, BSType.BuyClose, dyndata.now+2, g.shortholdingpos)#买平
+        
+    elif price5min< ma10Minclose and len(g.pos)>0 and g.balancesingal==1 and g.shortlock==0:
+        # 有持仓时，如果5分钟收盘，低于10日均线卖出平仓
+        if g.longholdingpos>0 and dyndata.now>0.0:
+            
+            print "有多头持仓，开始卖平------------------------"+str(g.longholdingpos)
+            
+            context.myacc.InsertOrder(g.code, BSType.SellClose, dyndata.now-4, g.longholdingpos)#卖平
+            context.myacc.InsertOrder(g.code, BSType.SellCloseToday, dyndata.now-4, g.longholdingpos)
+        if g.shortlock==0 and dyndata.now>0.0:
+            print "15分钟收盘价低于10日均线，开始卖开-------------------------------------"
+            context.myacc.InsertOrder(g.code, BSType.SellOpen, dyndata.now-4, g.tradevolume) #卖开
+        #context.myacc.InsertOrder(g.code, BSType.SellCloseToday, dyndata.now-4, g.holdingpos)        
+    #计算均线
+#     MA = GetIndicator("MA",code,params=(5,10),bar_type = BarType.Day)
+#     MA1 = MA["MA(5)"]
+#     MA2 = MA["MA(10)"]
+#     if len(MA2)<2:
+#         return
+#     #ma1上穿ma2时买入螺纹主力1手
+#     elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:
+#         QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now,1)
+#     #ma1下穿ma2时卖出平仓
+#     elif MA1[-1] <= MA2[-1] and MA1[-2]>MA2[-2]:
+def OnExchangeClose(context, accountname, exchangecode, productcode):
+    
+    Currenttradingtime=GetCurrentTime()#取当前时间
+
+    CurrentDay=GetCurrentTime() 
+    
+    
+    #只在15：00 和 23：30收盘后对行情进行退订
+    if exchangecode=="DCE" and ((Currenttradingtime>=GetCurrentDayTime(CurrentDay,14,59,59) and Currenttradingtime<GetCurrentDayTime(CurrentDay,15,31,59)) or (Currenttradingtime>=GetCurrentDayTime(CurrentDay,23,25,59) and Currenttradingtime<GetCurrentDayTime(CurrentDay,23,35,59)) ) :
+        UnsubscribeBar(g.code, BarType.Day)
+        UnsubscribeBar(g.code, BarType.Min15)
+        print "unsub on market close at "+str(Currenttradingtime)+"contract "+str(g.code)
+    #         QuickInsertOrder(context.myacc,g.code,'sell','close',dyndata.now,1)
+def OnTradeDeal(context, AccountName, trade) :
+    #TR = context.accounts["回测期货"].GetTradeDetail(trade.id, trade.bstype.BuySellFlag)
+    print "------------OnTradeDeal查询------------"
+    print "成交合约："+str(trade.contract)
+    print '成交价格:' + str(trade.price)
+    print "委托编号："+str(trade.orderid)
+    print "成交编号 ："+str(trade.id)
+    option = PBObj()
+    g.pos = context.accounts[g.accountname].GetPositions(option)
+    g.longholdingpos=0
+    g.shortholdingpos=0
+    if len(g.pos)>0:
+        
+        print "开始盘中持仓检查"
+        for i in g.pos:
+            if i.contract==g.code and i.availvolume>0 and i.bstype.BuySellFlag=="0" :#检查多头持仓
+                g.longholdingpos=i.availvolume #g.holdingpos+i.availvolume
+                print "已经成交多头 "+str(g.longholdingpos)
+                if i.availvolume>=g.tradevolume:
+                    g.longlock=1 #在多头开仓完全开仓后，不再允许开仓
+            if i.contract==g.code and i.availvolume>0 and i.bstype.BuySellFlag=="1" :#检查多头持仓
+                g.shortholdingpos=i.availvolume #g.holdingpos+i.availvolume
+                print "已经成交空头 "+str(g.shortholdingpos)
+                if i.availvolume>=g.tradevolume:
+                    g.shortlock=1 #在多头开仓完全开仓后，不再允许开仓                    
+                
+                
+    else:
+        print "盘中持仓为0，仓位已经全部平仓"
+        g.longlock=0
+        g.shortlock=0
