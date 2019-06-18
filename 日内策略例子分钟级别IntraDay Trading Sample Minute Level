@@ -4,6 +4,7 @@ from PoboAPI import *
 import datetime
 import numpy as np
 ## E00muCounter2
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
 #双向交易 （15）分钟级策略 演示用ontradedeal进行仓位控制
 
 #开始时间，用于初始化一些参数
