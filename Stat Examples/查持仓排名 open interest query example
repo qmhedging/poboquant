@@ -1,0 +1,112 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+
+#用真格量化 python实现，在真格量化 上运行，如果有问题 可加群 726895887 咨询
+#真格量化可访问 https://quant.pobo.net.cn
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print "I\'m starting..."
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    context.myacc = None
+    if context.accounts.has_key("回测期货") :
+        print "登录交易账号[回测期货]"
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'SHFE':
+        return
+    #获取主力合约
+    g.code = GetMainContract('SHFE', 'rb',20)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Day) 
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+
+
+def GetTradingDayLeft(code):#查询标的到期时间函数
+    import re 
+    m=re.match(r'[a-z]+[0-9]+\.+[A-Z]',code)
+    if m:
+      info=GetContractInfo(code) 
+      T=info['最后交易日']
+      exchange=GetExchangeByCode(code)
+      t=GetCurrentTradingDate(exchange)
+      return (T-t).days
+    else:
+      info=GetContractInfo(code) 
+      T=info['行权到期日']
+      exchange=GetExchangeByCode(code)
+      t=GetCurrentTradingDate(exchange)
+      return (T-t).days
+
+def OnBar(context,code,bartype) :
+    #过滤掉不需要的行情通知
+    sig=0#排名信号，0为无信号，1为有信号
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)#获取价格
+    currentday=GetCurrentTradingDate('SHFE')#当前日期
+    previousday=GetPreviousTradingDate('SHFE',currentday)#上一个交易日
+    
+    rankdata = GetContractRanking(0,g.code,1,previousday,previousday,1)
+    
+    #查询持仓排名，（0.按合约查询，合约，1.持买仓量排名，开始日期，结束日期，名次）
+    n = 0
+    while n<len(rankdata):
+      for oo in rankdata[n].keys():
+       print str(oo) +':' + str(rankdata[n][oo])
+       if rankdata[n]['会员']=="永安期货":
+        
+            print "sig=1"
+            sig=1 #期货公司排名第一，信号sig设定为1
+      n +=1
+    
+
+    
+    if sig==1:#信号为1，可以开仓，买开
+        
+        QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now,1)
+        
+    if sig==0: #信号为0，检查持仓，有持仓就平仓，卖平
+        option = PBObj()
+        pos = context.accounts["回测期货"].GetPositions(option)
+        
+        if len(pos)>0:
+            
+            for i in pos:        
+
+              QuickInsertOrder(context.myacc,i.contract,'sell','close',dyndata.now,i.availvolume)
+            
+            
+            
+    option = PBObj()
+    option.buysellflag = '0'#检查多头持仓
+    pos = context.accounts["回测期货"].GetPositions(option)
+    print "持仓检查 "+str(len(pos))
+    
+    if len(pos)>0:
+        for i in pos:
+             daysleft =GetTradingDayLeft(i.contract)#获取最后交易日
+             if daysleft<10:
+
+                dyndatapos = GetQuote(i.contract)
+
+                QuickInsertOrder(context.myacc,i.contract,'sell','close',dyndatapos.now,i.availvolume)
+                
+                UnsubscribeBar(i.contract, BarType.Day)#快到期合约退订
+                   
+
+                print '接近到期日，平仓----------------'    
+        
+#     if len(MA2)<2:
+#         return
+#     #ma1上穿ma2时买入螺纹主力1手
+#     elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:
+#         QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now,1)
+#     #ma1下穿ma2时卖出平仓
+#     elif MA1[-1] <= MA2[-1] and MA1[-2]>MA2[-2]:
+#         QuickInsertOrder(context.myacc,g.code,'sell','close',dyndata.now,1)
