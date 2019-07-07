@@ -1,0 +1,14 @@
+def OnQuote(context,code) :
+    print '调用到OnQuote事件'
+    dyndata = GetQuote(g.code)
+    now1 = dyndata.now
+    currenttime=GetCurrentTime()
+    
+    print "hour "+str(currenttime.hour) + " minute "+str(currenttime.minute)
+    
+    
+    if currenttime.hour==9 and currenttime.minute==32:
+        
+        print "time to unsubcribe"
+        
+        UnsubscribeQuote(g.code)
