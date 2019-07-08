@@ -21,8 +21,9 @@ def OnMarketQuotationInitialEx(context, exchange,daynight):#event of exchange be
     if exchange != 'SHFE': #filter other data that not from SHFE
         return
     #get the main contract
-    g.code = GetMainContract('SHFE', 'au',20) # example gold,g meant it's a global variable, that could be used in every function
-    #subscribe the bar line data to drive OnBar event    
+    g.code = GetMainContract('SHFE', 'au',20) # example gold,"g" meant it's a global variable, that could be used in every function
+    #subscribe the bar line data to drive OnBar event 
+    #a "main contract" is a contract with top trading volume
     SubscribeBar(g.code, BarType.Day) #subsribe the Bar Line, frequency daily
     
 #OnBar event, each new bar data received, will activate this function, like to calculate moving average and decide whether to trade
