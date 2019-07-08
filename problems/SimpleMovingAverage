@@ -6,7 +6,7 @@ import numpy as np
 
 
 #OnStart event, initialize some parameters,like which account to use 
-def OnStart(context) :
+def OnStart(context) : # a strategy must have a OnStart part 
     print "I\'m starting..."
     
     #login the trading account , like "回测期货" meant "back test futures account" 
@@ -21,11 +21,12 @@ def OnMarketQuotationInitialEx(context, exchange,daynight):#event of exchange be
     if exchange != 'SHFE': #filter other data that not from SHFE
         return
     #get the main contract
-    g.code = GetMainContract('SHFE', 'au',20) # example gold,
+    g.code = GetMainContract('SHFE', 'au',20) # example gold,g meant it's a global variable, that could be used in every function
     #subscribe the bar line data to drive OnBar event    
     SubscribeBar(g.code, BarType.Day) #subsribe the Bar Line, frequency daily
     
-#OnBar event, each new bar data received, will activate this function 
+#OnBar event, each new bar data received, will activate this function, like to calculate moving average and decide whether to trade
+# on certain signals
 def OnBar(context,code,bartype) :
     #Filter the unwanted quote data
     
@@ -39,7 +40,7 @@ def OnBar(context,code,bartype) :
     print "MA(5) is "+str(MA1[-1]) +" MA(10) is "+str(MA2[-1])+" current market price is "+str(dyndata.now)
     if len(MA2)<2:
         return
-    #MA5 go above MA10, buy open one lost of gold,with current market price
+    #MA5 go above MA10, buy open one lot of gold,with current market price
     elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:
         QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now,1)
     # MA5 go below MA10,sell close one lot of gold,with current market price
