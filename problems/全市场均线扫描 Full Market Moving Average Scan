@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print "I\'m starting..."
+    g.exchangelist=["DCE","SHFE","INE","CZCE","CFFEX","SHSE"]#关注交易所列表
+    g.blacklist=['Oc', 'Om', 'S','Ocu', 'Oru','USD_sc','OCF','OSR',"ME","AF","WR","ER"]
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    context.myacc = None
+    if context.accounts.has_key("回测期货") :
+        print "登录交易账号[回测期货]"
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'SHFE':
+        return
+    #获取主力合约
+    g.code = GetMainContract('SHFE', 'rb',20)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Day)
+    #SubscribeBar(g.code, BarType.Min) 
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype) :
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)
+    for exchange in g.exchangelist:
+
+        productlist=GetVarieties(exchange)
+
+        #print str(productlist)
+
+        for product in productlist:
+
+            if product not in g.blacklist:
+
+                code = GetMainContract(exchange,product,20)
+                if code:
+                    #print "code "+str(code)
+                    #计算均线
+                    MA = GetIndicator("MA",code,params=(5,10),bar_type = BarType.Day)
+                    MA1 = MA["MA(5)"]
+                    MA2 = MA["MA(10)"]
+                    if len(MA2)<2:
+                        return
+                    #ma1上穿ma2时买入螺纹主力1手
+                    elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:
+                        QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now,1)
+                        print "5日均线上穿10日均线 "+str(product)+" 主力合约 "+str(code)+" MA5 "+str(MA1[-1])+" MA10 "+str(MA2[-1])
+                    #ma1下穿ma2时卖出平仓
+                    elif MA1[-1] <= MA2[-1] and MA1[-2]>MA2[-2]:
+                        QuickInsertOrder(context.myacc,g.code,'sell','close',dyndata.now,1)
+                        print "5日均线下穿10日均线 "+str(product)+" 主力合约 "+str(code)+ " MA5 "+str(MA1[-1])+" MA10 "+str(MA2[-1])
