@@ -4,6 +4,7 @@ from PoboAPI import *
 import datetime
 import numpy as np
 
+# the API doc is here https://quant.pobo.net.cn/doc?name=api 
 
 #OnStart event, initialize some parameters,like which account to use 
 def OnStart(context) : # a strategy must have a OnStart part 
@@ -22,6 +23,8 @@ def OnMarketQuotationInitialEx(context, exchange,daynight):#event of exchange be
         return
     #get the main contract
     g.code = GetMainContract('SHFE', 'au',20) # example gold,"g" meant it's a global variable, that could be used in every function
+    # SHFE is for Shanghai Futures Exchange, au is for gold, 20 is for main contract
+    #also 0 for current month，1 for next month，2 for next quarter，3 for the quarter after the next quarter，20 for main contract
     #subscribe the bar line data to drive OnBar event 
     #a "main contract" is a contract with top trading volume
     SubscribeBar(g.code, BarType.Day) #subsribe the Bar Line, frequency daily
