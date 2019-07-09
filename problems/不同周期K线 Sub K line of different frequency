@@ -14,9 +14,9 @@ def OnStart(context) :
   
   print "g.code is "+str(g.code)
   #订阅实时数据，用于驱动OnQuote事件
-  SubscribeQuote(g.code)
+  SubscribeQuote(g.code) #Subscribe the real time price quote
   #订阅K线数据，用于驱动OnBar事件
-  SubscribeBar(g.code, BarType.Min)
+  SubscribeBar(g.code, BarType.Min) #Subscribe the minute bar data
   #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
   context.myacc = None
   g.accountname ="回测期货"
@@ -28,41 +28,41 @@ def OnStart(context) :
 #实时行情事件，当有新行情出现时调用该事件
 def OnQuote(context, code) :
   #过滤掉不需要的行情通知
-  if code != g.code :
+  if code != g.code :  #filter unwanted price data
     return 
   
   #获取最新行情
   dyndata = GetQuote(code)
-  if dyndata :
+  if dyndata : #if the real time price quote exists
     #.now指最新价，详细属性见API文档
-    now1 = dyndata.now
+    now1 = dyndata.now # get the market price
     #打印最新价
     log.info("最新价: " + str(dyndata.now))
 
   #获取K线数据
-  klinedata3 = GetHisData(code, BarType.Min3)#三分钟
-  klinedata1 = GetHisData(code, BarType.Min) #一分钟
+  klinedata3 = GetHisData(code, BarType.Min3)#三分钟 #get 3 Minutes bar price data
+  klinedata1 = GetHisData(code, BarType.Min) #一分钟 #get 1 Minutes bar price data 
   #打印K线数据，如最新一根K线的最高价
-  if len(klinedata3) > 0 and len(klinedata1)> 0:
-    lasthigh3 = klinedata3[-2].high
+  if len(klinedata3) > 0 and len(klinedata1)> 0: #if those historical price set not empty
+    lasthigh3 = klinedata3[-2].high # example of getting the price high
     lasthigh1 = klinedata1[-2].high
     log.info("最新3分钟K线的最高价: "  + str(lasthigh3))
     log.info("最新1分钟K线的最高价: "  + str(lasthigh1))
     
     
-    log.info("3分钟k线数据时间 "+str(klinedata3[-2].datetime))
+    log.info("3分钟k线数据时间 "+str(klinedata3[-2].datetime)) #example of showing the datetime of the price data
     
     log.info("1分钟k线数据时间 "+str(klinedata1[-2].datetime))
-    
+  # trade on certain historical price pattern  
   #如果配置好交易账号了，可以根据条件下单，需把下面中的证券测试账号换成您设置的账号名称
   if len(klinedata3) > 1 and klinedata3[-3].close < klinedata3[-2].close and len(klinedata1) > 1 and klinedata1[-3].close < klinedata1[-2].close and context.myacc :
       # 当日收盘价小于昨收则买入
-      print "满足开仓条件......."
+      print "满足开仓条件.......To Trade"
       context.myacc.InsertOrder(code, BSType.Buy, dyndata.now, 100)
   elif len(klinedata3) > 1 and klinedata3[-3].close > klinedata3[-2].close  and len(klinedata1) > 1 and klinedata1[-3].close > klinedata1[-2].close and context.myacc :
       # 当日收盘价大于昨收则卖出
       print "满足平仓条件......."
-      context.myacc.InsertOrder(code, BSType.Sell, dyndata.now, 100)
+      context.myacc.InsertOrder(code, BSType.SellClose, dyndata.now, 100)
 
 #委托回报事件，当有委托回报时调用
 def OnOrderChange(context, AccountName, order) :
