@@ -4,6 +4,7 @@ from PoboAPI import *
 import datetime
 import numpy as np
 #用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
+# do a market scan for certain price patter, like MA5 goes above or below MA10
 
 #开始时间，用于初始化一些参数
 def OnStart(context) :
@@ -12,7 +13,7 @@ def OnStart(context) :
     g.blacklist=['Oc', 'Om', 'S','Ocu', 'Oru','USD_sc','OCF','OSR',"ME","AF","WR","ER"]#product not to follow
     #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
     context.myacc = None
-    g.accountname="回测期货"
+    g.accountname="回测期货" #the futures back test account
     if context.accounts.has_key(g.accountname) :
         print "登录交易账号 Login Account "+str(g.accountname)
         if context.accounts[g.accountname].Login() :
@@ -101,11 +102,11 @@ def OnBar(context,code,bartype) :
                     MA2 = MA["MA(10)"]
                     if len(MA2)<2:
                         return
-                    #ma1上穿ma2时买入螺纹主力1手
+                    #MA5 goes above MA10, signal for buy open
                     elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:
                         QuickInsertOrder(context.myacc,code,'buy','open',dyndata.now,1)
                         print "5日均线上穿10日均线 "+str(product)+" 主力合约 "+str(code)+" MA5 "+str(MA1[-1])+" MA10 "+str(MA2[-1])
-                    #ma1下穿ma2时卖出平仓
+                    #MA5 goes below MA10, signal for sell close
                     elif MA1[-1] <= MA2[-1] and MA1[-2]>MA2[-2]:
                         QuickInsertOrder(context.myacc,code,'sell','close',dyndata.now,1)
                         print "5日均线下穿10日均线 "+str(product)+" 主力合约 "+str(code)+ " MA5 "+str(MA1[-1])+" MA10 "+str(MA2[-1])
