@@ -3,20 +3,36 @@
 from PoboAPI import *
 import datetime
 import numpy as np
-
 #用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
-#扫描符合均线上穿或下穿条件的主力合约
+
 #开始时间，用于初始化一些参数
 def OnStart(context) :
     print "I\'m starting..."
-    g.exchangelist=["DCE","SHFE","INE","CZCE","CFFEX","SHSE"]#关注交易所列表
-    g.blacklist=['Oc', 'Om', 'S','Ocu', 'Oru','USD_sc','OCF','OSR',"ME","AF","WR","ER"]
+    g.exchangelist=["DCE","SHFE","INE","CZCE","CFFEX"]#关注交易所列表 #the exchange list
+    g.blacklist=['Oc', 'Om', 'S','Ocu', 'Oru','USD_sc','OCF','OSR',"ME","AF","WR","ER"]#product not to follow
     #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
     context.myacc = None
-    if context.accounts.has_key("回测期货") :
-        print "登录交易账号[回测期货]"
-        if context.accounts["回测期货"].Login() :
-            context.myacc = context.accounts["回测期货"]
+    g.accountname="回测期货"
+    if context.accounts.has_key(g.accountname) :
+        print "登录交易账号 Login Account "+str(g.accountname)
+        if context.accounts[g.accountname].Login() :
+            context.myacc = context.accounts[g.accountname]
+            
+def GetTradingDayLeft(code):#calculate the expire days for both futures and options
+    import re 
+    m=re.match(r'[a-zA-Z]+[0-9]+\.+[A-Z]',code) #as 50ETF options ony got numbers in the contract code 
+    if m:
+      info=GetContractInfo(code) 
+      T=info['最后交易日'] #for futures,get the last trading date
+      exchange=GetExchangeByCode(code)
+      t=GetCurrentTradingDate(exchange)
+      return (T-t).days
+    else:
+      info=GetContractInfo(code) 
+      T=info['行权到期日'] #for options, get the expire date
+      exchange=GetExchangeByCode(code)
+      t=GetCurrentTradingDate(exchange)
+      return (T-t).days
 
 def OnMarketQuotationInitialEx(context, exchange,daynight):
     if exchange != 'SHFE':
@@ -27,12 +43,42 @@ def OnMarketQuotationInitialEx(context, exchange,daynight):
     SubscribeBar(g.code, BarType.Day)
     #SubscribeBar(g.code, BarType.Min) 
     
+def CloseExpiring(context): #close the positions that near the expire date
+    option = PBObj()
+    #option.buysellflag = '0'
+    pos = context.accounts[g.accountname].GetPositions(option)
+    
+    for i in pos:
+        
+        if GetTradingDayLeft(i.contract)<10: # to close thsoe positions within 10 days to expire
+            
+            code=i.contract
+            
+            dyndata = GetQuote(i.contract)
+            
+            if i.bstype.BuySellFlag=="0":
+                
+                print "多头接近到期平仓 close the long positions "+str(i.contract)
+                
+                QuickInsertOrder(context.myacc,code,'sell','close',dyndata.now,i.availvolume)
+                
+            if i.bstype.BuySellFlag=="1":
+                
+                 print "空头接近到期平仓 close the short positions "+str(i.contract)
+                
+                 QuickInsertOrder(context.myacc,code,'buy','close',dyndata.now,i.availvolume)
+                    
+                    
+                
+ 
+    
 #实时行情事件，当有新行情出现时调用该事件Ex
 def OnBar(context,code,bartype) :
     #过滤掉不需要的行情通知
     if code != g.code:
         return
-    dyndata = GetQuote(g.code)
+    CloseExpiring(context) # close the expiring positions
+    
     for exchange in g.exchangelist:
 
         productlist=GetVarieties(exchange)
@@ -46,6 +92,9 @@ def OnBar(context,code,bartype) :
                 code = GetMainContract(exchange,product,20)
                 if code:
                     #print "code "+str(code)
+                    dyndata = GetQuote(code)
+                    
+                    
                     #计算均线
                     MA = GetIndicator("MA",code,params=(5,10),bar_type = BarType.Day)
                     MA1 = MA["MA(5)"]
@@ -54,9 +103,9 @@ def OnBar(context,code,bartype) :
                         return
                     #ma1上穿ma2时买入螺纹主力1手
                     elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:
-                        QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now,1)
+                        QuickInsertOrder(context.myacc,code,'buy','open',dyndata.now,1)
                         print "5日均线上穿10日均线 "+str(product)+" 主力合约 "+str(code)+" MA5 "+str(MA1[-1])+" MA10 "+str(MA2[-1])
                     #ma1下穿ma2时卖出平仓
                     elif MA1[-1] <= MA2[-1] and MA1[-2]>MA2[-2]:
-                        QuickInsertOrder(context.myacc,g.code,'sell','close',dyndata.now,1)
+                        QuickInsertOrder(context.myacc,code,'sell','close',dyndata.now,1)
                         print "5日均线下穿10日均线 "+str(product)+" 主力合约 "+str(code)+ " MA5 "+str(MA1[-1])+" MA10 "+str(MA2[-1])
