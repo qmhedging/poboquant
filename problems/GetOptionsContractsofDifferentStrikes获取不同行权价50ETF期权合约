@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import time
+import numpy as np
+from copy import *
+def OnStart(context) :
+  context.myacc = None
+  #登录交易账号
+  if context.accounts["回测期权"].Login() :
+    context.myacc = context.accounts["回测期权"]
+    
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    #print "on market ini"
+    #print str(exchange)
+    if exchange!= 'SHSE':
+        return
+   # 获取主力合约
+    g.code="510050.SHSE"
+    SubscribeBar(g.code,BarType.Day)
+    #g.code = GetMainContract('CZCE','TA',20)    
+
+def Getop(code):
+    dyndata = GetQuote('510050.SHSE')
+    now1 = dyndata.now
+    now50 = round(now1,1)#+0.05*2
+    cutime = GetCurrentTime()
+    if cutime.day>15 and cxutime.month<12:
+        tim = cutime.month + 1
+        month_time = datatime.datetime(month=tim, year=cutime.year, day = 20)
+    elif cutime.day >15 and cutime.month==12:
+        tim = 1
+        yea = cutime.year + 1
+        month_time = datetime.datetime(month = tim, year = yea, day = 20)
+    else:
+        month_time = cutime
+    atmopc = GetAtmOptionContract(code,month_time,now50+0.05*2,0)
+    atmopp = GetAtmOptionContract(code,month_time,now50-0.05*2,1)
+    print "for test" + str(atmopc) + "and" + str(atmopp)
+    return atmopc,atmopp
+
+def OnBar(context,code,type):
+    
+    callop=Getop(g.code)[0]
+    
+    putop=Getop(g.code)[1]
+    
+    print "call "+str(callop)+" put "+str(putop)
+    
+    
+    
+    
