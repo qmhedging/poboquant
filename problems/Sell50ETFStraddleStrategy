@@ -1,0 +1,170 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import time
+import numpy as np
+# SetTradeLogLevel(53,255)
+# SetTradeLogLevel(54,255)
+# SetTradeLogLevel(55,255)
+#日线级别 a Daily frquency strategy
+#Sell 50ETF options straddle,meant both call and put to collect options premium
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    # Emucounter2
+    print "I\'m starting..."
+    #设定一个全局变量品种
+    g.code = "510050.SHSE"
+    #订阅实时数据，用于驱动OnQuote事件
+    SubscribeQuote(g.code)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Day)
+    #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称 # initialize the account
+    context.myacc = None
+    g.accountname="回测期权" #backtest options account,don't change the name,or it wont run
+    if context.accounts.has_key(g.accountname) :
+        print "Logining account....."+str(g.accountname)
+        if context.accounts[g.accountname].Login() :
+            context.myacc = context.accounts[g.accountname]
+def Getop(code):#获取期权合约，取正确的合约月份#get the options contract
+    dyndata = GetQuote(code)
+    now1 = dyndata.now
+    now50 = round(now1,1)+0.05 #ATM options plus one  Interval 
+    cutime = GetCurrentTime()
+    if cutime.day >15 and cutime.month<12:
+        tim = cutime.month + 1
+        month_time = datetime.datetime(month=tim, year=cutime.year,day = 20)
+    elif cutime.day >15 and cutime.month==12:
+        tim = 1
+        yea = cutime.year + 1
+        month_time = datetime.datetime(month=tim, year=yea,day = 20) 
+    else:
+        month_time = cutime
+    atmopc = GetAtmOptionContract(code,month_time,now50,0)
+    atmopp = GetAtmOptionContract(code,month_time,now50,1)
+    print "for test "+str(atmopc)+" and "+str(atmopp)
+    return atmopc,atmopp
+def OnExchangeOpen(context, accountname, exchangecode, productcode):
+    context.accounts[g.accountname].Logout()
+    context.accounts[g.accountname].Login()
+    #context.accounts["回测期权"].SetAutoRelogin(datetime.time(8, 50))
+    print "re-login the account at the exchange open"
+#     if context.accounts.has_key("回测期权") :
+#         print "登录交易账号[回测期权]"
+#         if context.accounts["回测期权"].Login() :
+#             context.myacc = context.accounts["回测期权"]
+    print "in function-------------"
+    print "exchangecode "+str(exchangecode) 
+    if exchangecode=='SHSE':
+        
+        cuttime=GetCurrentTime()
+        print "checking time"
+        if str(cuttime)[12:]=="9:30:00":
+            
+            print "SHSE market open"
+    
+def stime(op):
+#     info1 = GetContractInfo(op)
+#     kill = info1['行权到期日']
+#     print "行权到期日"+str(kill)
+#     print str(type(kill))
+#     cutime = GetCurrentTime()
+#     if cutime.day <10:
+#         cutim = str(cutime.year) + str(cutime.month) + '0' +str(cutime.day)
+#     elif cutime.month <10:
+#         cutim = str(cutime.year) + '0' + str(cutime.month) +str(cutime.day)
+#     else:
+#         cutim = str(cutime.year) + str(cutime.month) +str(cutime.day)
+#     cu = int(cutim)
+#     n = kill - cu
+#     return n
+      info1 = GetContractInfo(op)
+      kill = info1['行权到期日'] #get date of options expiry
+
+      cutime = GetCurrentTime()
+      c = cutime.date()
+      n = (kill - c).days
+      print n
+      return n
+    
+#实时行情事件，当有新行情出现时调用该事件
+def OnQuote(context, code) :
+    #过滤掉不需要的行情通知
+    if code != g.code :
+        return
+
+    #获取最新行情
+#     cuttime=GetCurrentTime()
+#     print "检验时间"
+#     if str(cuttime)[12:]=="9:30:00":
+            
+#        print "中金所开盘"
+    dyndata = GetQuote(g.code)
+    if dyndata :
+        #.now指最新价，详细属性见API文档i
+        now1 = dyndata.now
+        #打印最新价
+        log.info("current price of 510050 " + str(dyndata.now) + str(dyndata.time))
+    posi = context.myacc.GetPositions()
+    print len(posi)
+    
+    print "to cal hv"
+    
+    b = CreateCalcObj()
+    option = PBObj()
+    option.EndDate = GetCurrentTime()
+    option.Count = 60
+    #获取最近10天的最高价列表 Get 60-day historical volatility
+    klist = GetHisDataByField(g.code, BarType.Day, "close", option)
+    if len(klist)>0:
+        Kl = np.array(klist, dtype=np.double)
+        c=b.GetVolatility(Kl)
+        print "HV 60d "+str(c)
+        #print c
+    opc,opp = Getop(g.code) #return options contracts
+    print "for test "+str(opc)+" and "+str(opp)
+    if len(posi) == 0 and c<0.35:
+        opc,opp = Getop(g.code)
+        print str(opc)
+        dync = GetQuote(opc)
+        dynp = GetQuote(opp)
+        if dync != None:
+            log.info("price for call opt: " + str(dync.now))
+            log.info("price fir put opt: " + str(dynp.now))
+            context.myacc.InsertOrder(opc, BSType.SellOpen, dync.now, 50)
+            context.myacc.InsertOrder(opp, BSType.SellOpen, dynp.now, 50)
+    elif len(posi) >1:
+        print len(posi)
+        opcode1 = posi[0].contract
+        opcode2 = posi[1].contract
+        dyn1 = GetQuote(opcode1)
+        dyn2 = GetQuote(opcode2)
+        info1 = GetContractInfo(opcode1)
+        pr1 = info1['行权价格']#the strike price of the call options
+        ki1 = info1['行权到期日']#the date of expiry of the options
+        info2 = GetContractInfo(opcode2)
+        pr2 = info2['行权价格']#the strike price of the put options
+        sy = stime(opcode1)
+        print   'strike price for call '+ str(pr1)
+        print   'strike price for call' + str(pr2)
+        print sy
+        if sy<5:  #到期平仓 to close expiring options
+            print "closing expiring options -----------------------------------"
+#             print str(opcode1)+"期权第一腿 高："+str(dyn1.high)+" 低价 "+str(dyn1.low)+" 成交量 "+str(dyn1.volume)
+#             print str(opcode2)+"期权第二腿 高："+str(dyn2.high)+" 低价 "+str(dyn2.low)+" 成交量 "+str(dyn2.volume)
+#             print "第一腿委托价格 "+str(dyn1.now)+" 第二腿委托价格 "+str(dyn2.now)
+            context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now, 50)
+            context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now, 50)
+        elif now1 >= pr1 or now1 <= (pr1-0.15): # current price higher than strike price, cut loss. current price lower than strike price - 0.15, take profit
+            print "taking profir or cutting loss-----------------------------------"
+            context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now, 50)
+            context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now, 50)
+    bal=context.accounts[g.accountname].AccountBalance
+    print "Account Balance Checking-------------- "+str(bal.AssetsBalance)        
+#委托回报事件，当有委托回报时调用
+def OnOrderChange(context, AccountName, order) :#notify when orders inserted
+    #打印委托信息，id是编号，volume是数量，详细见API文档
+    print "Order ID： " + order.id + "   Account Name： " + AccountName
+    print "Vol: " + str(order.volume) + " Price: " + str(order.price)
+
