@@ -1,3 +1,12 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+#统计中国商品期权所有挂牌合约中昨日持仓金额并排序
+#get the commodity options value of previous trading date 
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
+#开始时间，用于初始化一些参数
 def OnStart(context) :
     print "I\'m starting..."
     #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
@@ -25,6 +34,9 @@ def OnBar(context,code,bartype) :
     #过滤掉不需要的行情通知
     if code != g.code:
         return
+    cur_trade_day = GetCurrentTradingDate('SHFE')
+    pre_trade_time = GetPreviousTradingDate('SHFE',cur_trade_day)#get prevous trading date
+    print "previous trading day "+str(pre_trade_time)
     for product in g.optionsvarietylist:
         
         contractlist=GetFuturesContracts(GetExchangeByVariety(product),product)
@@ -38,23 +50,38 @@ def OnBar(context,code,bartype) :
 
             for opc in opclist:
 
-                pricedata=GetQuote(opc)
-
-                value=pricedata.now*pricedata.amount*GetContractInfo(contract)["合约乘数"]
                 
-                print str(opc) +"  value "+str(value)
+                
+                option = PBObj()
+               
+                option.EndDate = pre_trade_time
+                option.Count=2
+                klinedata = GetHisData(opc, BarType.Day, option)
+                
+                if klinedata:
+                    value=klinedata[-1].close*klinedata[-1].amount*GetContractInfo(contract)["合约乘数"]
 
-                opcsum=opcsum+value
+                    #print str(opc) +"  value "+str(value)
+
+                    opcsum=opcsum+value
             for opp in opplist:
 
-                pricedata=GetQuote(opp)
-
-                value=pricedata.now*pricedata.amount*GetContractInfo(contract)["合约乘数"]
-
-                oppsum=oppsum+value    
+                option = PBObj()
+               
+                option.EndDate = pre_trade_time
+                option.Count=2
+                klinedata = GetHisData(opp, BarType.Day, option)
                 
-            g.resultcalls[product]=opcsum
-            g.resultputs[product]=oppsum 
+                if klinedata:
+                
+                    value=klinedata[-1].close*klinedata[-1].amount*GetContractInfo(contract)["合约乘数"]
+
+                    #print str(opp) +"  value "+str(value)
+
+                    oppsum=oppsum+value    
+                
+        g.resultcalls[product]=opcsum
+        g.resultputs[product]=oppsum 
         
                     
     print "calls "+str(sorted(g.resultcalls.items(),key=lambda item:item[1]))
