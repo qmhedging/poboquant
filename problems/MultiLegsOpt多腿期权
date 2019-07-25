@@ -1,0 +1,194 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import time
+import numpy as np
+            
+def OnStart(context) :#THIS PART IS OK
+# Emucounter2
+    print "I\'m starting..."
+#设定一个全局变量品种
+    g.code = "510050.SHSE"
+#订阅实时数据，用于驱动OnQuote事件
+    SubscribeQuote(g.code)
+#订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Day)
+#登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称 # initialize the account
+    context.myacc = None
+    g.accountname="回测期权" #backtest options account,don't change the name,or it wont run
+    if context.accounts.has_key(g.accountname) :
+        print "Logining account....."+str(g.accountname)
+        if context.accounts[g.accountname].Login() :
+            context.myacc = context.accounts[g.accountname]
+            
+
+def Getop(code):#get the options contract
+    dyndata = GetQuote(code)
+    now1 = dyndata.now
+    now50 = round(now1,1)+0.05 #ATM options plus one  Interval
+    now50a = round(now1,1)+0.1 #ATM options plus one  Interval
+    cutime = GetCurrentTime()
+    if cutime.day >15 and cutime.month<12:
+        tim = cutime.month + 1
+        month_time = datetime.datetime(month=tim, year=cutime.year,day = 20)
+    elif cutime.day >15 and cutime.month==12:
+        tim = 1
+        yea = cutime.year + 1
+        month_time = datetime.datetime(month=tim, year=yea,day = 20) 
+    else:
+        month_time = cutime
+    atmopc = GetAtmOptionContract(code,month_time,now50,0)
+    atmopp = GetAtmOptionContract(code,month_time,now50,1)
+    atmopcs = GetAtmOptionContract(code,month_time,now50a,0)
+    atmopps = GetAtmOptionContract(code,month_time,now50a,1)
+    print "for test "+str(atmopc)+" and "+str(atmopp)
+    return atmopc,atmopp,atmopcs,atmopps  # return the opts 
+
+
+def OnExchangeOpen(context, accountname, exchangecode, productcode):
+    context.accounts[g.accountname].Logout()
+    context.accounts[g.accountname].Login()
+    #context.accounts["回测期权"].SetAutoRelogin(datetime.time(8, 50))
+    print "re-login the account at the exchange open"
+#     if context.accounts.has_key("回测期权") :
+#  print "登录交易账号[回测期权]"
+#  if context.accounts["回测期权"].Login() :
+#  context.myacc = context.accounts["回测期权"]
+    
+    
+    print "in function-------------"
+    print "exchangecode "+str(exchangecode) 
+    if exchangecode=='SHSE':
+        
+        
+        cuttime=GetCurrentTime()
+        print "checking time"
+        
+        if str(cuttime)[12:]=="9:30:00":
+            
+            print "SHSE market open"
+    
+    
+def stime(op):
+      info1 = GetContractInfo(op)
+      kill = info1['行权到期日'] #get date of options expiry
+
+      cutime = GetCurrentTime()
+      c = cutime.date()
+      n = (kill - c).days
+      print n
+      return n
+       
+    
+    
+def OnQuote(context, code) :
+    #过滤掉不需要的行情通知
+    if code != g.code :
+        return
+
+    #获取最新行情
+#cuttime=GetCurrentTime()
+#print "检验时间"
+#if str(cuttime)[12:]=="9:30:00":
+            
+#print "中金所开盘"
+    dyndata = GetQuote(g.code)
+    if dyndata :
+        #.now指最新价，详细属性见API文档i
+        now1 = dyndata.now
+        #打印最新价
+        log.info("current price of 510050 " + str(dyndata.now) + str(dyndata.time))
+    posi = context.myacc.GetPositions()
+    print len(posi)
+    
+    print "to cal hv"
+    
+    b = CreateCalcObj()
+    option = PBObj()
+    option.EndDate = GetCurrentTime()
+    option.Count = 60
+    #获取最近10天的最高价列表 Get 60-day historical volatility
+    klist = GetHisDataByField(g.code, BarType.Day, "close", option)
+    if len(klist)>0:
+        Kl = np.array(klist, dtype=np.double)
+        c=b.GetVolatility(Kl)
+        print "HV 60d "+str(c)
+        print c
+    opc,opp,opcs,opps= Getop(g.code) #return options contract
+    
+    
+#CHECK FROM HERE ON --> 
+    
+    
+    print "for test "+str(opc)+" and "+str(opp)+" and "+str(opps)+" and "+str(opcs)
+    if len(posi) == 0 and c<0.4 and c>0.41:
+        
+        print str(opc)
+        print str(opp)
+        print str(opcs)
+        print str(opps)
+        dync = GetQuote(opc)
+        dynp = GetQuote(opp)
+        dync = GetQuote(opcs)
+        dynp = GetQuote(opps)
+        
+    if len(posi)==0 and c>0.22 and c<0.35:
+        opc,opp,opcs,opps = Getop(g.code)
+        print str(opcs)
+        print str(opps)
+        print str(opcs)
+        print str(opps)
+        dync = GetQuote(opc)
+        dynp = GetQuote(opp)
+        dyncs = GetQuote(opcs)
+        dynps = GetQuote(opps)
+        
+        if dync != None and dynp !=None and dyncs!=None and dynps!=None :
+            log.info("price for call opt: " + str(dync.now))
+            log.info("price fir put opt: " + str(dynp.now))
+            log.info("price for call optSELL: " + str(dyncs.now))
+            log.info("price fir put optSELL: " + str(dynps.now))
+            
+            context.myacc.InsertOrder(opc, BSType.BuyOpen, dync.now, 50)
+            context.myacc.InsertOrder(opp, BSType.BuyOpen, dynp.now, 50)
+            context.myacc.InsertOrder(opcs, BSType.SellOpen, dyncs.now, 50)
+            context.myacc.InsertOrder(opps, BSType.SellOpen, dynps.now, 50)
+    
+            print str(opc)+" traded"
+            print str(opp)+" traded"
+            print str(opps)+" traded"
+            print str(opcs)+" traded"
+      
+    if len(posi)>0: # close positions 10 days before opt expiry
+
+        #if the opts not closed at expiry, it could cause trouble as the system won't deliver opt
+        for i in posi:
+        
+            sy = stime(i.contract)
+
+            print "days left to expire "+str(sy)
+
+            if sy<=10:
+                
+                
+                if i.bstype.BuySellFlag=="0": # for long positions
+
+                    print "close the expiring opts "
+
+                    dyn = GetQuote(i.contract)
+
+                    context.myacc.InsertOrder(i.contract, BSType.SellClose, dyn.now, i.availvolume)
+
+                if i.bstype.BuySellFlag=="1": # for short positions
+                    
+                    print "close the expiring opts "
+
+                    dyn = GetQuote(i.contract)
+
+                    context.myacc.InsertOrder(i.contract, BSType.BuyClose, dyn.now, i.availvolume)
+                    
+                    
+            
+     
+        
