@@ -1,0 +1,246 @@
+# coding:utf-8
+#!/usr/bin/env python
+# Emucounter2
+#from ftplib import FTP 
+
+#import mysql.connector
+#用真格量化 python实现，在真格量化上运行，如果有问题 可加群 726895887 咨询
+#真格量化可访问 https://quant.pobo.net.cn
+from PoboAPI import *
+import datetime
+import numpy as np
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
+#债券期货价差策略,10年期国债与5年期国债价差 spread trade on 10y and 5y bond futures
+def OnStart(context) :
+    # EmuCounter2
+    print "I\'m starting..."
+    
+    context.myacc = None
+    if context.accounts.has_key("回测期货"):
+        print "登录交易账号[回测期货]"
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]    
+    #SubscribeQuote(["T1812.CFFEX","TF1812.CFFEX"]) 
+    g.code1="IF1906.CFFEX"
+    g.code2="IF1909.CFFEX"
+    SubscribeBar([g.code1,g.code2],BarType.Min)
+    pos = context.accounts["回测期货"].GetPositions()
+    #初始化回落止损
+    g.DropStop = DropStopLoss( context.myacc ) ########  ———— 第一步
+
+    g.floatpro=0 
+    
+def OnOrderChange(context, AccountName, order) :
+    Test = context.accounts["回测期货"].GetOrder(order.id)
+    print "委托数量 "+str(Test.volume)
+    print "委托是否可撤 "+str(Test.IsCanCancel())
+    print "委托买卖方向"+str(Test.bstype.BuySellFlag)
+    
+    
+    option = PBObj()
+    #option.buysellflag = '0'
+    pos = context.accounts["回测期货"].GetPositions(option)
+    
+    for i in pos:
+        print "查询持仓"
+        print "持仓合约 "+str(i.contract)
+        print "可用数量 "+str(i.availvolume)
+        print "开仓价格" +str(i.openavgprice)
+        
+        print '----------------'
+    
+
+def OnBar(context,code,bartype) :
+    g.DropStop.execute() ######## ———— 第三步,执行回落止损检查
+    option=PBObj()
+    #option.buysellflag='0'
+    pos = context.accounts["回测期货"].GetPositions()
+    
+    for i in pos:
+        
+        if i.contract==g.code2:
+            
+            openprice=i.openavgprice
+    #print "positions ",pos
+    #print "len(pos) ",len(pos)
+    print "持仓检查 len(pos) str in trade "+str(len(pos))
+
+    leg1 = GetQuote(g.code1)
+    leg2 = GetQuote(g.code2)
+    
+    leg1now=leg1.now
+    leg2now=leg2.now
+    
+    if len(pos)>0:
+        
+    
+        if  openprice*1.001<leg2now:# openprice>leg1now*1.001:
+
+            print "有浮盈啦！！！！！！！！！！！！！"
+
+            g.floatpro=1
+
+        if g.floatpro==1 and  openprice*1.0009>leg2now:# openprice<leg1now*1.0009:
+
+            print "浮盈回落啦！！！！！！！！！！！！！！！！！！！！！！！！！！"
+            print "需要触发回落止损！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！"
+        
+    spreadnow=leg1now-leg2now
+    print "spread "+str(spreadnow) # 最新价差
+    
+    #if spreadnow<=9 and len(pos)==0 : #10债和5债价差小于0.5就买10债卖5债
+    if leg2now>3710:
+        print "to buy Spread....股指要开仓" 
+        context.myacc.InsertOrder(g.code1, BSType.BuyOpen, leg1now+1, 1)
+        context.myacc.InsertOrder(g.code2, BSType.SellOpen,  leg2now-1, 1)
+        print "positions bought"
+        bal=context.accounts["回测期货"].AccountBalance.AssetsBalance #返回成交后账户权益
+        
+        print "账户金额 ："+str(bal)
+        #orders = context.accounts["回测期货"].GetOrder(order.id)
+        #print str(orders.volume)
+        #OnOrderChange(context, "回测期货", order)
+        TradeDetails = context.accounts["回测期货"].GetTradeDetails()
+        print "len(TradeDetails)"+str(len(TradeDetails))
+        #print "len(pos) in trade ",len(pos)
+        pos = context.accounts["回测期货"].GetPositions()
+        print "len(pos) str in trade "+str(len(pos))
+        
+        
+        #设置回落止损参数
+        #设置止损参数
+        #code: 合约代码 如"rb1909.SHFE"，示例中为g.code
+        #open_price: 开仓价格，示例中为dyndata.now
+        #buy_sell_flag: str类型,买卖方向‘buy’代表买,‘sell’代表卖，示例中为'buy'
+        #start_point：开始止损点，float类型，如为0.1表示浮盈10%后开始计算回撤，示例中为0.1
+        #stop_loss_point：止损点，float类型，如0.05，示例中为0.05
+        #volume: 止损手数，int类型，示例中为1
+        #today_first：优先平今标志,仅上期所合约时有效,可不填,默认为True,True表示优先平今,Flase表示优先平昨,仅上期所有效,今仓不够volume时,直接平volume手的昨仓
+        g.DropStop.set_order ( g.code2, leg2now-1, 'sell', 0.001, 0.0009, 1, False) ######## ———— 第二步
+    
+#     if spreadnow>15 and len(pos)>0: #有持仓且最新价差大于1就卖出止盈
+#         print "to sell Spread..." 
+#         context.myacc.InsertOrder(g.code1, BSType.SellClose,leg1now-1, 1)
+#         context.myacc.InsertOrder(g.code2, BSType.BuyClose,leg2now+1, 1)
+#         print "positions sold，已经获利平仓"
+#         bal=context.accounts["回测期货"].AccountBalance.AssetsBalance #返回成交后账户权益
+#         print "账户金额 ："+str(bal)
+#         pos = context.accounts["回测期货"].GetPositions()
+#         print "len(pos) str in trade "+str(len(pos))
+        
+        
+        
+        
+    
+#     if spreadnow<=8 and len(pos)>0: #有持仓且最新价差小于0.3就卖出止损
+#         print "to sell Spread..." 
+#         context.myacc.InsertOrder(g.code1, BSType.SellClose, leg1now-1, 1)
+#         context.myacc.InsertOrder(g.code2, BSType.BuyClose, leg2now+1, 1)
+#         print "positions sold 已经止损"
+#         bal=context.accounts["回测期货"].AccountBalance.AssetsBalance #返回成交后账户权益
+#         print "账户金额 ："+str(bal)
+#         pos = context.accounts["回测期货"].GetPositions()      
+        
+#         print "len(pos) str in trade "+str(len(pos))
+#     print "检查回测止损-------------------------------------"
+    #g.DropStop.execute() ######## ———— 第三步    
+#回落止损API,当价格突破止损点位时，以最新价平仓
+#set_order用来设置止损参数
+#execute用来执行止损
+class DropStopLoss:
+    def __init__(self, account): 
+        self.account = account
+        self.record = {}   
+    class StoplLossParam:
+        def __init__( self, code, openprice, buysellflag, startpoint, stoplosspoint, volume, today_first ):
+            self.code = code
+            self.price = openprice #成交价
+            self.recordprice = openprice # recordprice用来记录价格最值
+            self.buysellflag = buysellflag
+            self.startpoint = startpoint
+            self.stoplosspoint = stoplosspoint
+            self.volume = volume
+            self.today_first = today_first
+            self.flag = False # 开始止损标志
+    def create_id( self ):
+        import uuid
+        print "uuid "+str(uuid)
+        return str(uuid.uuid1())
+    #设置止损参数
+    #code: 合约代码 如"rb1909.SHFE"
+    #openprice: 开仓价格
+    #buy_sell_flag: str类型,买卖方向‘buy’代表买,‘sell’代表卖
+    #start_point：开始止损点，float类型，如为0.1表示浮盈10%后开始计算回撤
+    #stop_loss_point：止损点，float类型，如0.05
+    #volume: 止损手数，int类型
+    #today_first：优先平今标志,仅上期所合约时有效,可不填,默认为True,True表示优先平今,Flase表示优先平昨,仅上期所有效,今仓不够volume时,直接平volume手的昨仓
+    def set_order( self, code, open_price, buy_sell_flag, start_point, stop_loss_point, volume, today_first = True ):
+        param = self.StoplLossParam( code, open_price, buy_sell_flag, start_point, stop_loss_point, volume, today_first )
+        #用成交单dict存储每个止损单参数
+        tradeid = self.create_id()
+        self.record.update( { tradeid: param } )            
+        print "回落止损参数设置完成"
+    #进行止损
+    def deletekey( self, delete ):
+        for key in delete:
+            del self.record[ key ]
+    def execute( self ):
+        #遍历成交单dict
+        print "reached execute part !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        delete = []
+        print "len(key) ~~~~~~~~~~~~~~~~~"+str(len(list( self.record.keys() )))
+        for key in list( self.record.keys() ): 
+            code = self.record[ key ].code
+            price = self.record[ key ].price
+            buysellflag = self.record[ key ].buysellflag
+            option = PBObj()
+            option.contract = code
+            if buysellflag == "buy":
+                option.buysellflag = "0"
+            if buysellflag == "sell":
+                option.buysellflag = "1"                
+            pos = self.account.GetPositions(option)
+            print "~~~len(pos) ~~~~~~~~"+str(len(pos))
+            volume = 0
+            for i in pos:
+                volume += i.volume
+                if volume < self.record[ key ].volume:
+                    self.record[ key ].volume = volume
+            if volume == 0:
+                delete.append( key )
+                continue
+            dyndata = GetQuote( code )
+            currentprice = dyndata.now
+            if buysellflag == "buy":
+                #更新价格最值
+                print "检查价格 "+str(dyndata.now)+" vs "+str(self.record[ key ].recordprice)
+                if dyndata.now > self.record[ key ].recordprice:
+                    self.record[ key ].recordprice = dyndata.now 
+                #更新开始止损标志
+                if not self.record[ key ].flag and dyndata.now > price * ( 1 + self.record[ key ].startpoint ): 
+                    self.record[ key ].flag = True 
+                    print "价位到达止损触发点!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                #判断并执行止损
+                if self.record[ key ].volume > 0 and self.record[ key ].flag and dyndata.now < self.record[ key ].recordprice * ( 1 - self.record[ key ].stoplosspoint ):
+                    QuickInsertOrder( self.account, code, 'sell', 'close', currentprice, self.record[ key ].volume, self.record[ key ].today_first )
+                    #更新成交单dict
+                    delete.append( key ) 
+                    print "回落指止损触发！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！"
+                    print "触发回落止损，合约" + code + "止损价" + str( currentprice )
+            if buysellflag == "sell":
+                #更新价格最值
+                print "检查价格 "+str(dyndata.now)+" vs "+str(self.record[ key ].recordprice)
+                if dyndata.now < self.record[ key ].recordprice:
+                    self.record[ key ].recordprice = dyndata.now 
+                #更新开始止损标志
+                if not self.record[ key ].flag and dyndata.now < price * ( 1 - self.record[ key ].startpoint ): 
+                    self.record[ key ].flag = True 
+                    print "价位到达止损触发点!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                #判断并执行止损
+                if self.record[ key ].volume > 0 and self.record[ key ].flag and dyndata.now > self.record[ key ].recordprice * ( 1 + self.record[ key ].stoplosspoint ):
+                    QuickInsertOrder( self.account, code, 'buy', 'close', currentprice, self.record[ key ].volume, self.record[ key ].today_first ) 
+                    #更新成交单dict
+                    delete.append( key )
+                    print "回落指止损触发！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！"
+                    print "触发回落止损，合约" + code + "止损价" + str( currentprice )
+        self.deletekey( delete )        
