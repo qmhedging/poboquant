@@ -1,0 +1,136 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import time
+import numpy as np
+from copy import *
+#用真格量化 python2.7实现，在真格量化 上运行，如果有问题 可加群 726895887 咨询
+#真格量化可访问 https://quant.pobo.net.cn
+
+#回测时需自行指定策略在“日”级别运行
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    context.myacc = None
+    #登录交易账号
+    if context.accounts["回测期权"].Login() :
+        context.myacc = context.accounts["回测期权"]
+    
+
+    
+
+    
+
+#每天行情初始化的，获取当前的50etf对应的平值期权
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    #过滤掉非上交所的信号
+    if exchange != 'SHSE':
+        return
+    #获取期权标的
+    g.underlying = '510050.SHSE'
+
+    SubscribeBar(g.underlying ,BarType.Day)
+  
+    #在k线出现的时候，如果没持仓就卖开，如果有就平仓
+def OnBar(context,code,bartype):
+    
+    
+    currentdate=GetCurrentTradingDate('SHSE')
+    
+    previousdate=GetPreviousTradingDate("SHSE",currentdate)
+    
+    
+    option = PBObj()
+    
+    option.EndDate = previousdate
+    
+    option.Count=2
+    
+    klinedata = GetHisData(g.underlying, BarType.Day, option)
+    
+    priceunderlyingprevious=klinedata[-1].close
+    
+    print str(priceunderlyingprevious)
+    
+    atmopc1=GetAtmOptionContract(g.underlying ,0,priceunderlyingprevious,0,'M')
+    atmopp1=GetAtmOptionContract(g.underlying ,0,priceunderlyingprevious,1, 'M')
+    
+    klinedataopc = GetHisData(atmopc1, BarType.Day, option)
+    klinedataopp = GetHisData(atmopp1, BarType.Day, option)
+    
+    opcprice1=klinedataopc[-1].close
+    oppprice1=klinedataopp[-1].close
+    
+    optinfo1=GetContractInfo(atmopc1)
+    
+    strikeprice1=optinfo1["行权价格"]   
+  
+    
+    expiredate1=optinfo1["行权到期日"]
+    
+    
+    t1=(expiredate1-previousdate).days/365.0
+    
+    
+    b1 = CreateCalcObj()
+    IVC1 = b1.GetImpliedVolatility(0,0,priceunderlyingprevious,strikeprice1,0.20,0.04,t1,opcprice1)
+    IVP1 = b1.GetImpliedVolatility(1,0,priceunderlyingprevious,strikeprice1,0.20,0.04,t1,oppprice1)
+    
+    
+    priceunderlying=GetQuote(g.underlying)
+    
+    priceunderlyingnow=priceunderlying.now
+    
+    
+    atmopc2 = GetAtmOptionContract(g.underlying ,0,priceunderlyingnow,0,'M')
+    atmopp2 = GetAtmOptionContract(g.underlying ,0,priceunderlyingnow,1, 'M')
+    
+    opcdata2=GetQuote(atmopc2)
+    
+    oppdata2=GetQuote(atmopc2)
+    
+    opcprice2=opcdata2.now
+    
+    oppprice2=oppdata2.now
+    
+    
+    currentdate=GetCurrentTradingDate('SHSE')
+    
+    optinfo2=GetContractInfo(atmopc2)
+    
+    strikeprice2=optinfo2["行权价格"]   
+  
+    
+    expiredate1=optinfo2["行权到期日"]
+    
+    
+    t2=(expiredate1-currentdate).days/365.0
+    
+    #GetImpliedVolatility(direct, type, stockprice, strikeprice, volatility, r, t,optionprice)
+    
+    b2 = CreateCalcObj()
+    IVC2 = b2.GetImpliedVolatility(0,0,priceunderlyingnow,strikeprice2,0.20,0.04,t2,opcprice2)
+    IVP2 = b2.GetImpliedVolatility(1,0,priceunderlyingnow,strikeprice2,0.20,0.04,t2,oppprice2)
+    
+    
+    if atmopc1==atmopc2 and (IVC2-IVC1)*(IVP2-IVP1)<0 and (expiredate1-currentdate).days>5:
+        
+        print "------------Differnt---------------"
+        
+        print "IVC "+str(IVC1)+" "+str(IVC2)+" IVP "+str(IVP1)+" "+str(IVP2)
+    
+    
+    
+    
+#     posi = context.myacc.GetPositions() #获取所有持仓
+#     if len(posi) == 0:
+#         print("卖开")
+#         #下单卖开,2表示最新价
+#         QuickInsertOrder(context.myacc,g.atmopc,'sell','open',PriceType(PbPriceType.Limit,2),10)
+#     elif len(posi) >0:
+#         opcode = posi[0].contract
+#         print("买平")
+#         #下单买平,16表示对手价,平掉现有仓位的所有手数
+#         QuickInsertOrder(context.myacc,opcode,'buy','close',PriceType(PbPriceType.Limit,16),posi[0].volume)
+#     UnsubscribeBar(g.atmopc,BarType.Day)
