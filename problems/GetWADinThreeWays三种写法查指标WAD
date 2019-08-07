@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print("I\'m starting...")
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    context.myacc = None
+    if "回测期货" in context.accounts :
+        print("登录交易账号[回测期货]")
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'SHFE':
+        return
+    #获取主力合约
+    g.code = GetMainContract('SHFE', 'rb',20)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Day) 
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype):
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    
+    print ("gcode "+str(g.code))
+    dyndata = GetQuote(g.code)
+    #计算均线
+    df = GetIndicatorAsDF('WAD',g.code,params=({"M":30}),bar_type= BarType.Day)
+    
+    if len(df)>0:
+        
+        #print (str(df))
+        print("WAD DF"+str((df.WAD.values)[-1]))
+        print("MAWAD DF"+str((df.MAWAD.values)[-1]))
+        
+    WAD = CreateIndicator("WAD")
+    #设定参数，也可以不设置，系统有自带的默认参数，见下表
+    param = {"M":30}
+    WAD.SetParameter(param)
+    #设定要计算KDJ的品种和K线周期
+    if WAD:
+        WAD.Attach(g.code, BarType.Day)
+    #开始计算
+    WAD.Calc()
+    #获取计算结果，返回对应结果的list
+    WADS = WAD.GetValue("WAD")
+    MAWAD = WAD.GetValue("MAWAD")
+    if len(WADS)>0:
+        
+        #print (str(WADS))
+        print ('WAD' + str(WADS[-1]))
+        print ('MAWAD' + str(MAWAD[-1]))
+        
+    waddata=GetIndicator("WAD",g.code,params=({"M":30}),bar_type= BarType.Day)
+    
+    if len(waddata)>0:
+        
+        #print (str(waddata))
+    
+        print ("WAD1 "+str(waddata["WAD"][-1]))
+        print ("MAWAD1 "+str(waddata["MAWAD"][-1]))       
+    
