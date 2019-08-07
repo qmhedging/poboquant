@@ -1,0 +1,43 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print("I\'m starting...")
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    context.myacc = None
+    if "回测期货" in context.accounts :
+        print("登录交易账号[回测期货]")
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'SHFE':
+        return
+    #获取主力合约
+    g.code = GetMainContract('SHFE', 'rb',20)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Min) 
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype):
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)
+    
+    print("g.code "+str(g.code))
+    
+    
+    
+    option1 = PBObj()
+    option1.EndDate = GetCurrentTime()
+    option1.Count = 10
+    #获取最近10天的开高低收价格列表
+    kline = GetHisDataByField(g.code, BarType.Min5, ["open", "high", "low", "close"], option1)
+    
+    print("kline "+str(kline))
+        
