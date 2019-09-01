@@ -15,6 +15,8 @@ More tips https://quant.pobo.net.cn/doc?name=tips
 
 any issue, please post or contact me via qq 350052799
 
+Or visit the poboquant forum https://quant.pobo.net.cn/forum-portal/post/postList
+
 To connect Simnow account https://github.com/qmhedging/poboquant/wiki/%E4%BA%91%E9%87%8F%E5%8C%96-%E4%BD%BF%E7%94%A8%E6%8A%80%E5%B7%A7-Poboquant-Tips
 
 澎博财经 量化策略研究与实盘交易平台 
@@ -28,6 +30,8 @@ Python策略代码可在Poboquant平台运行回测与实盘交易
 API文档可参见 https://quant.pobo.net.cn/doc?name=api
 
 更多的使用技巧 https://quant.pobo.net.cn/doc?name=tips
+
+真格量化社区可访问 https://quant.pobo.net.cn/forum-portal/post/postList
 
 如果有问题，欢迎在git issues上吐槽 
 
