@@ -11,7 +11,7 @@ def OnStart(context) :
   #设定一个全局变量品种
   g.code1 = "MA905.CZCE"
   g.code2="MA909.CZCE"
-  accountname="simnow期货测试1"
+  accountname="回测期货"
   #订阅实时数据，用于驱动OnQuote事件
   SubscribeQuote([g.code1,g.code2])
   #订阅K线数据，用于驱动OnBar事件
@@ -25,7 +25,7 @@ def OnStart(context) :
   
 #实时行情事件，当有新行情出现时调用该事件
 def OnQuote(context, code) :
-  accountname="simnow期货测试1"
+  accountname="回测期货"
   #过滤掉不需要的行情通知
   
   #if code != g.code1 or code!=g.code2 :
