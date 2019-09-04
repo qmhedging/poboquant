@@ -1,0 +1,151 @@
+# coding:utf-8
+#!/usr/bin/env python
+
+from PoboAPI import *
+import datetime
+#用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
+#在tick级别回测，还可以自行添加处理瘸腿的功能，python3.5
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+  print("I\'m starting...")
+  #设定一个全局变量品种
+
+  accountname="回测期货"
+
+  context.myacc = None
+  if accountname in context.accounts :
+    print("登录交易账号 "+str(accountname))
+    if context.accounts[accountname].Login() :
+      context.myacc = context.accounts[accountname]
+ 
+def GetMonthRotation(CurrentDay,contractleg1,contractleg2):#一个简单的换月函数
+  #a simple month rolling function,picking the two most traded contracts
+  #依照中国市场传统的 1，5，9月合约为主力的习惯
+  yearstring=int(CurrentDay.year)
+  monthstring=int(CurrentDay.month)
+  daystring=int(CurrentDay.day)
+  
+  if monthstring>=1 and monthstring<=3 :# 1-3月 取主力合约 5月和9月
+             # ma            9                     05    vs    ma           9             09
+    return [contractleg1+str((str(yearstring))[-1])+str("05"),contractleg1+str((str(yearstring))[-1])+str("09")]
+  
+  if monthstring>=4 and monthstring<=7: #4-7月 取主力合约 9月和次年1月
+            # ma                 9                   09      ma          0                      01
+    return [contractleg1+str((str(yearstring))[-1])+str("09"),contractleg1+str((str(yearstring+1))[-1])+str("01")]
+  
+  if monthstring>=8 and monthstring<=11:#8-11月取主力合约 次年1月和次年5月
+    
+    return [contractleg1+str((str(yearstring+1))[-1])+str("01"),contractleg1+str((str(yearstring+1))[-1])+str("05")]  
+  
+  if monthstring==12: #12月  取主力合约 次年5月和次年9月
+    
+    return [contractleg1+str((str(yearstring+1))[-1])+str("05"),contractleg1+str((str(yearstring+1))[-1])+str("09")] 
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    
+    if exchange == 'CZCE' and daynight == 'night':
+        print('夜盘行情开盘时重登交易账号，只在夜盘初始化')
+        context.myacc.Logout()
+        context.myacc.Login()
+        CurrentDay=GetCurrentTime()
+        contract1,contract2="MA","MA"
+        g.code1 = str(GetMonthRotation(CurrentDay,contract1,contract2)[0])+str(".CZCE")
+        g.code2 = str(GetMonthRotation(CurrentDay,contract1,contract2)[1])+str(".CZCE")
+        
+        print("目标合约为 "+str(g.code1) +" "+str(g.code2))
+        
+        
+        #开始订阅合约，订阅实时行情，对应tick
+        
+        SubscribeQuote(g.code1)#只需要订阅一个合约
+        
+
+
+#实时行情事件，当有新行情出现时调用该事件
+def OnQuote(context, code) :
+  accountname="回测期货"
+  
+  #过滤掉不需要的行情通知
+  rollflag=0 #换月标志初始化
+  #if code != g.code1 or code!=g.code2 :
+  #  return 
+  
+  #获取最新行情
+  dyndataleg1 = GetQuote(g.code1)
+  dyndataleg2 = GetQuote(g.code2)
+  
+
+  #klinedata3l = GetHisData(g.code1, BarType.Min3)
+  klinedataM1leg1 = GetHisData(g.code1, BarType.Min)
+  
+  #klinedata3v = GetHisData(g.code2, BarType.Min3)
+  klinedataM1leg2 = GetHisData(g.code2, BarType.Min)
+  
+  #spread3=klinedata3l[-2].low-klinedata3v[-2].close
+  #print "spread3 is " +str(spread3)
+  
+  spread1=klinedataM1leg1[-2].close-klinedataM1leg2[-2].close #1分钟价差 选-1，-2，还是-3等看该价差对的历史表现，可以自己灵活调整
+  spreadt=dyndataleg1.now-dyndataleg2.now #tick价差
+  tradingtime=dyndataleg2.time
+  #print "spread1 is " +str(spread1)
+  option = PBObj()
+  option.buysellflag = '0' #查询持仓
+  pos = context.accounts[accountname].GetPositions(option)
+  #打印K线数据，如最新一根K线的最高价
+  #if len(klinedata3) > 0 and len(klinedata1)> 0:
+  #  lasthigh3 = klinedata3[-1].high
+  #  lasthigh1 = klinedata1[-1].high
+  #  log.info("最新3分钟K线的最高价: "  + str(lasthigh3))
+  #  log.info("最新1分钟K线的最高价: "  + str(lasthigh1))
+  #如果配置好交易账号了，可以根据条件下单，需把下面中的证券测试账号换成您设置的账号名称
+  if spread1-10>=spreadt and dyndataleg1.now>0.0 and dyndataleg2.now>0.0 and context.myacc and len(pos)==0 :
+      # 当日收盘价小于昨收则买入
+      print("满足价差开仓条件......."+str(spread1)+" "+str(spreadt)+" "+str(tradingtime))
+      context.myacc.InsertOrder(g.code1, BSType.BuyOpen, dyndataleg1.now, 20)
+      context.myacc.InsertOrder(g.code2, BSType.SellOpen, dyndataleg2.now, 20)
+  elif spread1+10<=spreadt and dyndataleg1.now>0.0  and dyndataleg2.now>0.0 and context.myacc and len(pos)>0 :
+      # 当日收盘价大于昨收则卖出
+      print("满足价差平仓条件......."+str(spread1)+" "+str(spreadt)+" "+str(tradingtime))
+      context.myacc.InsertOrder(g.code1, BSType.SellClose, dyndataleg1.now, 20)
+      context.myacc.InsertOrder(g.code2, BSType.BuyClose, dyndataleg2.now, 20)
+    
+    
+  if len(pos)>0:#检查持仓并换月
+    
+    for i in pos:
+        
+        if i.contract not in [g.code1,g.code2]:
+            
+            rollflag=1 #查询到有合约不是主力套利合约
+            print("需要换月------------------------") 
+   
+  if len(pos)>0 and rollflag==1:
+        
+        
+        for i in pos:
+            
+            poscontract=i.contract
+            
+            if GetQuote(i.contract):#判断价格是否存在
+            
+                posprice=GetQuote(i.contract).now
+
+                if i.bstype.BuySellFlag=="0": #多头持仓
+
+                    context.myacc.InsertOrder(poscontract, BSType.SellClose, posprice-20, i.volume)#平仓多头
+                    UnsubscribeQuote(poscontract)#退订非主力合约
+
+                if i.bstype.BuySellFlag=="1": #空头持仓
+
+                    context.myacc.InsertOrder(poscontract, BSType.BuyClose, posprice+20, i.volume)#平仓空头
+                    UnsubscribeQuote(poscontract)
+        SubscribeQuote(g.code1)#确保仍有行情订阅            
+            
+        
+        
+
+#委托回报事件，当有委托回报时调用
+def OnOrderChange(context, AccountName, order) :
+  #打印委托信息，id是编号，volume是数量，详细见API文档
+  print("委托编号： " + str(order.id) + "   账号名称： " + str(AccountName))
+  print("Vol: " + str(order.volume) + " Price: " + str(order.price))
