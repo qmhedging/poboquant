@@ -6,7 +6,7 @@ import numpy as np
 #用poboquant python实现，在poboquant上运行，如果有问题 可加群 726895887 咨询
 
 #poboquant可访问 https://quant.pobo.net.cn
-# do a market scan for certain price patter, like MA5 goes above or below MA10
+# do a market scan for certain price pattern, like MA5 goes above or below MA10
 
 #开始时间，用于初始化一些参数
 def OnStart(context) :
