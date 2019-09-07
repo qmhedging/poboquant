@@ -39,7 +39,7 @@ def OnBar(context,code,bartype):
         for i in orders: #对已经发出的委托，检查是否已经超过2分钟不成交，不成交就撤单
             
             
-            if i.status==5 and i.inserttime>=GetCurrentTime()+datetime.timedelta(minutes=2):
+            if i.status==5 and GetCurrentTime()>=i.inserttime+datetime.timedelta(minutes=2):
                 
                 
                 context.accounts["回测期货"].CancelOrder(context.accounts["回测期货"].GetOrder(i.id))
