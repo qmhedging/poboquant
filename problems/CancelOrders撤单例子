@@ -21,7 +21,26 @@ def OnMarketQuotationInitialEx(context, exchange,daynight):
     g.code = GetMainContract('SHFE', 'rb',20)
     #订阅K线数据，用于驱动OnBar事件
     SubscribeBar(g.code, BarType.Min)
+
+def GetCurrentTradingDateTime(exchange):#返回以交易日而非自然日的日期和时间
     
+    exchange="SHFE"
+    
+    #tradingday=datetime.datetime.strptime(date_str,'%Y-%m-%d')GetCurrentTradingDate(exchange)
+    tradingday=GetCurrentTradingDate(exchange)
+    
+    
+    
+    currenttime= GetCurrentTime()
+    
+    
+    if tradingday.day==currenttime.day:#如果交易日和自然日天数一致
+        
+        return currenttime
+    
+    else: #如果交易日和自然日天数不一致
+        
+        return currenttime+datetime.timedelta(days=(tradingday.day-currenttime.day))    
     
 #实时行情事件，当有新行情出现时调用该事件Ex
 def OnBar(context,code,bartype):
@@ -39,7 +58,7 @@ def OnBar(context,code,bartype):
         for i in orders: #对已经发出的委托，检查是否已经超过2分钟不成交，不成交就撤单
             
             
-            if i.status==5 and GetCurrentTime()>=i.inserttime+datetime.timedelta(minutes=2):
+            if i.status==5 and GetCurrentTradingDateTime("SHFE")>=i.inserttime+datetime.timedelta(minutes=2):
                 
                 
                 context.accounts["回测期货"].CancelOrder(context.accounts["回测期货"].GetOrder(i.id))
