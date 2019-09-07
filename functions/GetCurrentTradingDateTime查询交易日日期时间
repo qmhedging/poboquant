@@ -1,0 +1,19 @@
+def GetCurrentTradingDateTime(exchange):#返回以交易日而非自然日的日期和时间
+    
+    exchange="SHFE"
+    
+    #tradingday=datetime.datetime.strptime(date_str,'%Y-%m-%d')GetCurrentTradingDate(exchange)
+    tradingday=GetCurrentTradingDate(exchange)
+    
+    
+    
+    currenttime= GetCurrentTime()
+    
+    
+    if tradingday.day==currenttime.day:#如果交易日和自然日天数一致
+        
+        return currenttime
+    
+    else: #如果交易日和自然日天数不一致
+        
+        return currenttime+datetime.timedelta(days=(tradingday.day-currenttime.day))
