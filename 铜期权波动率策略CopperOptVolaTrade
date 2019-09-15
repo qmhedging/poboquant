@@ -1,0 +1,293 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import time
+import numpy as np
+# SetTradeLogLevel(53,255)
+# SetTradeLogLevel(54,255)
+# SetTradeLogLevel(55,255)
+#日线级别
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    # Emucounter2
+    print "I\'m starting..."
+    #设定一个全局变量品种
+    #g.code = GetMainContract("shfe","cu",20)#取铜主力合约
+    #订阅实时数据，用于驱动OnQuote事件
+#     print"underlying "+str(g.code)
+#     SubscribeQuote(g.code)
+    #订阅K线数据，用于驱动OnBar事件
+    #SubscribeBar(g.code, BarType.Day)
+    #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
+    g.targetpos=20 #目标开仓手数
+    g.oppos1,g.oppos2=0,0 #初始化持仓数量
+    g.openflag=0 #允许补仓开仓状态变量，为0不开仓，为1开仓
+    context.myacc = None
+    if context.accounts.has_key("回测期货") :
+        print "登录交易账号[回测期货]"
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]
+            
+            
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange == 'SHFE':# and daynight == 'night':
+        print '上期所 开盘时重登交易账号'
+        context.myacc.Logout()
+        context.myacc.Login()
+        
+        g.code=GetFutwithOPT(context,"cu","SHFE")#根据成交量获取带有期权的期货合约，用于订阅行情
+        print "in market ini "+str(g.code)
+        
+        #SubscribeBar(g.code, BarType.Day)
+        SubscribeBar(g.code, BarType.Day)
+        
+        
+        
+
+def GetFutwithOPT(context,productcode,exchangecode):
+    
+    
+    #返回一个带有期权的期货合约
+    
+    futlist=RankingContract(context,exchangecode,productcode,2) #RankingContract(context,exchangecode,productcode,RankingCriteria)
+    #[contract, oi,volume]
+    found=0
+    for i in futlist:
+        print"in func i[0] "+str(i[0])
+        option = PBObj()
+        option.EndDate = GetCurrentTime()
+        option.Count = 60
+        klinedata = GetHisData(i[0], BarType.Day, option)
+        
+        
+        
+        if GetOptionContracts(i[0],None,2) and len(klinedata)==60:
+            
+            print "target contract "+str(i[0])
+            
+            return i[0]
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+    
+        
+def Getop(code):#获取期权合约，取正确的合约月份
+    dyndata = GetQuote(code)
+    now1 = dyndata.now
+#     now50 = round(now1,1) + 0.05 #虚值一档
+#     cutime = GetCurrentTime()
+#     if cutime.day >15 and cutime.month<12:
+#         tim = cutime.month + 1
+#         month_time = datetime.datetime(month=tim, year=cutime.year,day = 20)
+#     elif cutime.day >15 and cutime.month==12:
+#         tim = 1
+#         yea = cutime.year + 1
+#         month_time = datetime.datetime(month=tim, year=yea,day = 20) 
+#     else:
+#         month_time = cutime
+#     atmopc = GetAtmOptionContract(code,month_time,now50,0)
+#     atmopp = GetAtmOptionContract(code,month_time,now50,1)
+#获取某档位期权合约GetAtmOptionContractByPos ( object_stock_code, pricetype,position, option_type, excute_date = None )
+    atmopc=GetAtmOptionContractByPos( g.code, "now", -2, 0, None )
+    atmopp=GetAtmOptionContractByPos( g.code, "now", -2, 1, None )
+    print "for test "+str(atmopc)+" and "+str(atmopp)
+    return atmopc,atmopp
+# def OnExchangeOpen(context, accountname, exchangecode, productcode):
+#     context.accounts["回测期货"].Logout()
+#     context.accounts["回测期货"].Login()
+#     #context.accounts["回测期权"].SetAutoRelogin(datetime.time(8, 50))
+#     print "账户重登录"
+# #     if context.accounts.has_key("回测期权") :
+# #         print "登录交易账号[回测期权]"
+# #         if context.accounts["回测期权"].Login() :
+# #             context.myacc = context.accounts["回测期权"]
+#     print "in function-------------"
+#     print "exchangecode "+str(exchangecode) 
+#     if exchangecode=='SHFE':
+        
+#         cuttime=GetCurrentTime()
+#         print "检验时间"
+#         if str(cuttime)[12:]=="9:00:00":
+            
+#             print "上期所开盘"
+    
+def stime(op):
+
+      info1 = GetContractInfo(op)
+      kill = info1['行权到期日']
+
+      cutime = GetCurrentTime()
+      c = cutime.date()
+      n = (kill - c).days
+      print n
+      return n
+    
+#实时行情事件，当有新行情出现时调用该事件
+#def OnQuote(context, code) :
+def OnBar(context,code,bartype):    
+    #过滤掉不需要的行情通知
+    if code != g.code :
+        return
+    print "in onbar "+str(g.code)
+    #获取最新行情
+#     cuttime=GetCurrentTime()
+#     print "检验时间"
+#     if str(cuttime)[12:]=="9:30:00":
+            
+#        print "中金所开盘"
+    dyndata = GetQuote(g.code)
+    if dyndata :
+        #.now指最新价，详细属性见API文档i
+        now1 = dyndata.now
+        #打印最新价
+        #log.info("最新价: " + str(dyndata.now) + str(dyndata.time))
+    posi = context.myacc.GetPositions()
+    print len(posi)
+    
+    print "to cal hv"
+    
+    b = CreateCalcObj()
+    option = PBObj()
+    option.EndDate = GetCurrentTime()
+    option.Count = 60
+    #获取60天
+    klist = GetHisDataByField(g.code, BarType.Day, "close", option)
+    if len(klist)>0:
+        Kl = np.array(klist, dtype=np.double)
+        c=b.GetVolatility(Kl)
+        print "历史波动率"
+        print c
+    opc,opp = Getop(g.code)
+    print "for test "+str(opc)+" and "+str(opp)
+    if len(posi) == 0 and c<0.35:
+        g.openflag=1
+        opc,opp = Getop(g.code)
+        g.opcode1,g.opcode2=opc,opp #用全局变量进行ontradedeal持仓检查
+        print str(opc)
+        dync = GetQuote(opc)
+        dynp = GetQuote(opp)
+        if dync != None and dync.now>0 and dynp.now>0:
+            log.info("最新价2: " + str(dync.now))
+            log.info("最新价3: " + str(dynp.now))
+            context.myacc.InsertOrder(opc, BSType.SellOpen, dync.now, 20)
+            context.myacc.InsertOrder(opp, BSType.SellOpen, dynp.now, 20)
+            
+    elif len(posi) >0:
+        print "有持仓 "+str(len(posi))
+        
+
+
+
+        if len(posi)<2 :#出现单腿
+            opcode1 = posi[0].contract
+            dyn1 = GetQuote(opcode1)
+            
+            if dyn1.now>0:
+                context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now, posi[0].volume)
+            
+        if len(posi)==2:
+            opcode1 = posi[0].contract
+            opcode2 = posi[1].contract
+            g.opcode1,g.opcode2=opcode1,opcode2 #用全局变量进行ontradedeal持仓检查
+            
+            
+        
+            dyn1 = GetQuote(opcode1)
+            dyn2 = GetQuote(opcode2)
+            info1 = GetContractInfo(opcode1)
+            pr1 = info1['行权价格']
+            ki1 = info1['行权到期日']
+            info2 = GetContractInfo(opcode2)
+            pr2 = info2['行权价格']
+            sy = stime(opcode1)
+            print str(pr1) + '行权价格'
+            print str(pr2) + '行权价格2'
+            print sy
+            print "距离到期日-----"+str(sy)
+            if sy<5 and dyn1.now>0 and dyn2.now>0 :  #到期平仓
+                print "合约接近到期平仓-----------------------------------"
+                g.openflag=0 #需要平仓时不可补仓
+                print str(opcode1)+"期权第一腿 高："+str(dyn1.high)+" 低价 "+str(dyn1.low)+" 成交量 "+str(dyn1.volume)
+                print str(opcode2)+"期权第二腿 高："+str(dyn2.high)+" 低价 "+str(dyn2.low)+" 成交量 "+str(dyn2.volume)
+                print "第一腿委托价格 "+str(dyn1.now)+" 第二腿委托价格 "+str(dyn2.now)
+                context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now, posi[0].volume)
+                context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now, posi[1].volume)
+            elif now1 >= pr1 or now1 <= (pr1-500*5) and dyn1.now>0 and dyn2.now>0:
+                print "合约止盈止损平仓-----------------------------------"
+                g.openflag=0 #需要平仓时不可补仓
+                context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now, posi[0].volume)
+                context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now, posi[1].volume)
+            print "g.openflag "+str(g.openflag)    
+            if g.openflag==1 and (posi[0].volume<g.targetpos  or   posi[1].volume<g.targetpos): #未达到开仓目标量、两腿没配齐时进行补仓
+                print "需要补仓 -------- "+str(posi[0].volume)+" "+str(posi[1].volume)
+                if g.targetpos-posi[0].volume>0 and dyn1.now>0:
+                    context.myacc.InsertOrder(opcode1, BSType.SellOpen, dyn1.now,g.targetpos-posi[0].volume)
+                if g.targetpos-posi[1].volume>0 and dyn2.now>0:    
+                    context.myacc.InsertOrder(opcode2, BSType.SellOpen, dyn2.now,g.targetpos-posi[1].volume)
+            
+            
+    bal=context.accounts["回测期货"].AccountBalance
+    print "账户权益检查-------------- "+str(bal.DynamicNetAssets)
+    print "账户风险度 ---------------"+str(bal.RiskDegree)
+#委托回报事件，当有委托回报时调用
+def OnOrderChange(context, AccountName, order) :
+    #打印委托信息，id是编号，volume是数量，详细见API文档
+    print "委托编号： " + order.id + "   账号名称： " + AccountName
+    print "Vol: " + str(order.volume) + " Price: " + str(order.price)
+
+def RankingContract(context,exchangecode,productcode,RankingCriteria):#exchangecode like "SHFE",productcode like "rb",RankingCriteria:1 for ranked by open interests,2 for ranking by trading volume
+    contractlist=GetFuturesContracts(exchangecode,productcode) #获取主力合约排名
+    contractlist={}.fromkeys(contractlist).keys()
+    Rankedcontractlist=[]
+    n=0
+    if RankingCriteria==1: # to rank by open interests
+        n=1
+    if RankingCriteria==2: # to rank by volume 
+        n=2
+    
+    for i in contractlist:
+        
+        #print str(i)
+        dyndatacontract=GetQuote(i)
+        volume=dyndatacontract.volume
+        openinterest=dyndatacontract.amount
+        datatime=dyndatacontract.time
+        #print "volume"+str(volume)
+        #print "openinterest"+str(openinterest)
+        #print "data time "+str(datatime)
+        Rankedcontractlist.append([i,openinterest,volume])
+        
+    ResultList=sorted(Rankedcontractlist, key=lambda Rankedcontractlist:(Rankedcontractlist[n]),reverse=True)
+    
+    return ResultList 
+
+def OnTradeDeal(context,AccountName,trade):
+    posi = context.myacc.GetPositions()
+    
+    if len(posi)>0:
+        
+        for i in posi:
+            
+            if i.contract==g.opcode1 and i.volume>0:
+                
+                g.oppos1=i.volume
+                
+            if i.contract==g.opcode2 and i.volume>0:
+                
+                g.oppos2=i.volume    
+                
+        if  g.oppos1==g.targetpos and g.oppos2==g.targetpos:
+            
+            g.openflag=0
+            
+            
+    
+    
