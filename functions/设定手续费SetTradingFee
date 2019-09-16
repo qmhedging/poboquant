@@ -1,0 +1,79 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+# E00muCounter2
+# from hmmlearn import hmm
+# import hmmlearn
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print "I\'m starting..."
+
+    
+    g.flag = True
+    #g.code = 'rb1910.SHFE'
+    #g.code="10000008.SHSE"
+    g.code = "IH1901.CFFEX"
+    #g.code="m1909-C-2800.DCE"
+    #g.code="10001715.SHSE"
+    #g.code="510050.SHSE"
+    #g.code="m1909.DCE"
+    g.accname ="回测期货"# "回测证券"#'回测期权'##'回测期权'
+    #g.accname="回测期权"
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    context.myacc = None
+    if context.accounts.has_key(g.accname) :
+        print "登录交易账号" + g.accname
+        if context.accounts[g.accname].Login() :
+            context.myacc = context.accounts[g.accname]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'DCE':
+        return
+    #获取主力合约
+    #g.code = GetMainContract('SHFE', 'rb',20)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Min) 
+    
+
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype) :
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)
+    print '下单'+str(g.code)+" flag "+str(g.flag)+" price "+ str(dyndata.now)
+    SetFeeRate(context) #here to use the set fee function
+    if g.flag :
+        #QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now,100)
+        QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now+0.00001,1)
+        QuickInsertOrder(context.myacc,g.code,'sell','open',dyndata.now-0.00001,1)
+        #context.myacc.InsertOrder(g.code, BSType.BuyOpen, now+2, 1)
+    else:
+        #context.myacc.InsertOrder(g.code, BSType.SellCloseToday, now-2, 1)
+        QuickInsertOrder(context.myacc,g.code,'sell','close',dyndata.now-0.00001,1)
+        QuickInsertOrder(context.myacc,g.code,'buy','close',dyndata.now+0.00001,1)
+        print "no move"
+    
+    g.flag = not g.flag
+    
+#######################Here is  the set fee function ################################################  
+def SetFeeRate(context):
+  if not context.myacc:
+    return
+
+  fee = PBObj();
+  fee.OpenUnit = 2
+  #fee.OpenRate = 0.000
+
+  fee.CloseUnit = 3
+  #fee.CloseRate = 0.000  
+
+  fee.CloseTodayUnit = 0
+  fee.CloseTodayRate = 0.000345 
+
+  fee.MiniFee = 1.9
+  context.myacc.SetFee(g.code, fee)
