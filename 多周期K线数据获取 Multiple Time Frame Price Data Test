@@ -41,8 +41,8 @@ def OnQuote(context, code) :
   klinedata1 = GetHisData(code, BarType.Min)
   #打印K线数据，如最新一根K线的最高价
   if len(klinedata3) > 0 and len(klinedata1)> 0:
-    lasthigh3 = klinedata3[-1].high
-    lasthigh1 = klinedata1[-1].high
+    lasthigh3 = klinedata3[-2].high
+    lasthigh1 = klinedata1[-2].high
     log.info("最新3分钟K线的最高价: "  + str(lasthigh3))
     log.info("最新1分钟K线的最高价: "  + str(lasthigh1))
   #如果配置好交易账号了，可以根据条件下单，需把下面中的证券测试账号换成您设置的账号名称
