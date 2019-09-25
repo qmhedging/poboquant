@@ -11,14 +11,23 @@ def RankingContract(context,exchangecode,productcode,RankingCriteria):#exchangec
     for i in contractlist:
         
         #print str(i)
-        dyndatacontract=GetQuote(i)
-        volume=dyndatacontract.volume
-        openinterest=dyndatacontract.amount
-        datatime=dyndatacontract.time
-        #print "volume"+str(volume)
-        #print "openinterest"+str(openinterest)
-        #print "data time "+str(datatime)
-        Rankedcontractlist.append([i,openinterest,volume])
+        
+        
+        if GetQuote(i):
+            
+            
+            
+            dyndatacontract=GetQuote(i)
+            volume=dyndatacontract.volume
+            openinterest=dyndatacontract.amount
+            datatime=dyndatacontract.time
+            #print "volume"+str(volume)
+            #print "openinterest"+str(openinterest)
+            #print "data time "+str(datatime)
+
+            if volume>0 and openinterest>0: #应对一些合约持仓、成交为0的情况 for oi and volume at 0 
+
+                Rankedcontractlist.append([i,openinterest,volume])
         
     ResultList=sorted(Rankedcontractlist, key=lambda Rankedcontractlist:(Rankedcontractlist[n]),reverse=True)
     
