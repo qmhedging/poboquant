@@ -2,7 +2,8 @@ def OnTradeDeal(context, AccountName, trade) :
     #print "TradeDealed on " + trade.id + " on " + AccountName
     print "有成交------------------------------------"
     print "tradeid "+str(trade.id)+" orderid "+str(trade.orderid)+" price "+str(trade.price)+" vol "+str(trade.volume)
-    pos = context.accounts[g.accountname].GetPositions()#收到成交回报，更新持仓   
+    option = PBObj()    
+    pos = context.accounts[g.accountname].GetPositions(option)#收到成交回报，更新持仓   
     
     if len(pos)>0:
         
