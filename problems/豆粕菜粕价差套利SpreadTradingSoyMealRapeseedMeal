@@ -1,0 +1,132 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+
+def OnStart(context):
+    g.a = context.accounts["回测期货"]#
+    g.a.Login()
+    g.code = ['m2001.DCE', 'RM001.CZCE']#注意菜粕的合约代码要区分大小写，且合约日期为三位
+    g.long_positions = dict()
+    g.short_positions = dict()
+    g.list=[]
+    for i in g.code:
+        g.long_positions.setdefault(i, 0)
+        g.short_positions.setdefault(i, 0)
+
+
+def OnMarketQuotationInitialEx(context, exchange, daynight):
+    g.a.Logout()
+    g.a.Login()
+    SubscribeBar(g.code[0], BarType.Min)
+    SubscribeQuote(g.code[0])
+
+
+def OnTradeDeal(context, AccountName, trade):
+    print "trade.contract "+str(trade.contract)
+    if trade.contract in g.code:
+        if trade.bstype.BuySellFlag == "0" and trade.bstype.OffsetFlag == "0":
+            g.long_positions[trade.contract] += trade.volume
+        if trade.bstype.BuySellFlag == "1" and (trade.bstype.OffsetFlag != "0"):
+            g.long_positions[trade.contract] -= trade.volume
+
+        if trade.bstype.BuySellFlag == "1" and trade.bstype.OffsetFlag == "0":
+            g.short_positions[trade.contract] += trade.volume
+        if trade.bstype.BuySellFlag == "0" and (trade.bstype.OffsetFlag != "0"):
+            g.short_positions[trade.contract] -= trade.volume
+
+
+def OnQuote(context, code):
+    t = str(GetCurrentTime())
+    h = int(t[11:13])
+    m = int(t[14:16])
+
+    pt = PriceType(PbPriceType.Limit, limit_price_type=16)
+    if GetQuote(g.code[0]) != None and GetQuote(g.code[0]) != None:
+        price0 = GetQuote(g.code[0]).now
+        price1 = GetQuote(g.code[1]).now
+    else:
+        return
+
+    # 计算价差
+    spread = price0 - price1
+    
+    position_long0 = g.long_positions[g.code[0]]
+    position_short0 = g.short_positions[g.code[0]]
+    position_long1 = g.long_positions[g.code[1]]
+    position_short1 = g.short_positions[g.code[1]]
+    
+    if g.list==[]:
+        g.list.append(spread)
+    
+    if g.list!=[] and spread>g.list[-1]+6:
+        if position_long0 and position_short1 and not position_long1 and not position_short0:
+            QuickInsertOrder(g.a, g.code[0], "sell", "close", pt, 1)
+            QuickInsertOrder(g.a, g.code[1], "buy", "close", pt, 1)
+            g.list.append(spread)
+    if g.list!=[] and spread<g.list[-1]-6:
+        if position_long1 and position_short0 and not position_long0 and not position_short1:
+            QuickInsertOrder(g.a, g.code[0], "buy", "close", pt, 1)
+            QuickInsertOrder(g.a, g.code[1], "sell", "close", pt, 1)
+            g.list.append(spread)
+
+def OnBar(context, code, type):
+    t = str(GetCurrentTime())
+    h = int(t[11:13])
+    m = int(t[14:16])
+
+    pt = PriceType(PbPriceType.Limit, limit_price_type=16)
+    if GetQuote(g.code[0]) != None and GetQuote(g.code[0]) != None:
+        price0 = GetQuote(g.code[0]).now
+        price1 = GetQuote(g.code[1]).now
+    else:
+        return
+
+    position_long0 = g.long_positions[g.code[0]]
+    position_short0 = g.short_positions[g.code[0]]
+    position_long1 = g.long_positions[g.code[1]]
+    position_short1 = g.short_positions[g.code[1]]
+  
+    # 计算价差
+    spread = price0 - price1
+    print "spread "+str(spread) 
+
+    if g.list==[]:
+        g.list.append(spread)
+    
+    print "spread "+str(spread)+" g.list[-1] "+str(g.list[-1])
+    if spread>g.list[-1]+6:
+        print "满足开仓条件 -----------------------------"
+        QuickInsertOrder(g.a, g.code[0], "sell", "open", pt, 1)
+        QuickInsertOrder(g.a, g.code[1], "buy", "open", pt, 1)
+        g.list.append(spread)
+        
+    if spread<g.list[-1]-6:
+        print "满足开仓条件 -----------------------------"
+        QuickInsertOrder(g.a, g.code[0], "buy", "open", pt, 1)
+        QuickInsertOrder(g.a, g.code[1], "sell", "open", pt, 1)
+        g.list.append(spread)
+
+    if len(g.a.GetPositions()) == 1:
+        orders = g.a.GetOrders()
+        for order in orders:
+            if order.IsCanCancel() and order.bstype.OffsetFlag == "0":
+                g.a.CancelOrder(order)
+        if position_short0:
+            QuickInsertOrder(g.a, g.code[0], "buy", "close", pt, position_short0)
+        if position_long0:
+            QuickInsertOrder(g.a, g.code[0], "sell", "close", pt, position_long0)
+        if position_short1:
+            QuickInsertOrder(g.a, g.code[1], "buy", "close", pt, position_short1)
+        if position_long1:
+            QuickInsertOrder(g.a, g.code[1], "sell", "close", pt, position_long1)
+    
+    if len(g.list)>10:
+        g.list=g.list[-10:]
+
+        
+def OnExchangeClose(context, accountname, exchangecode, productcode):
+    t = str(GetCurrentTime())
+    h = int(t[11:13])
+    if h == 15:
+        UnsubscribeBar(g.code[0], BarType.Min)
+        UnsubscribeQuote(g.code[0])
