@@ -5,7 +5,7 @@ from PoboAPI import *
 def OnStart(context):
     g.a = context.accounts["回测期货"]#
     g.a.Login()
-    g.code = ['m2001.DCE', 'RM001.CZCE']#注意菜粕的合约代码要区分大小写，且合约日期为三位
+    g.code = ['m2001.DCE', 'RM001.CZCE']
     g.long_positions = dict()
     g.short_positions = dict()
     g.list=[]
@@ -19,6 +19,12 @@ def OnMarketQuotationInitialEx(context, exchange, daynight):
     g.a.Login()
     SubscribeBar(g.code[0], BarType.Min)
     SubscribeQuote(g.code[0])
+    
+    g.leg1longpos=0 #第一腿持仓
+    g.leg1shortpos=0
+    
+    g.leg2longpos=0 #第二腿持仓
+    g.leg2shortpos=0
 
 
 def OnTradeDeal(context, AccountName, trade):
@@ -33,7 +39,34 @@ def OnTradeDeal(context, AccountName, trade):
             g.short_positions[trade.contract] += trade.volume
         if trade.bstype.BuySellFlag == "0" and (trade.bstype.OffsetFlag != "0"):
             g.short_positions[trade.contract] -= trade.volume
-
+    
+    option = PBObj()
+    positions = context.accounts["回测期货"].GetPositions(option)
+    if len(positions)>0:
+        
+        for i in positions:
+            
+            if i.contract==g.code[0] and  i.bstype.BuySellFlag == "0": #第一腿多头
+                
+                g.leg1longpos=i.availvolume
+                
+            if i.contract==g.code[0] and  i.bstype.BuySellFlag == "1": #第一腿空头
+                
+                g.leg1shortpos=i.availvolume 
+                
+            if i.contract==g.code[1] and  i.bstype.BuySellFlag == "0": #第二腿多头
+                
+                g.leg2longpos=i.availvolume   
+                
+            if i.contract==g.code[1] and  i.bstype.BuySellFlag == "1": #第二腿空头
+                
+                g.leg2shortpos=i.availvolume   
+                
+                
+                
+                
+                
+    
 
 def OnQuote(context, code):
     t = str(GetCurrentTime())
@@ -55,18 +88,26 @@ def OnQuote(context, code):
     position_long1 = g.long_positions[g.code[1]]
     position_short1 = g.short_positions[g.code[1]]
     
-    if g.list==[]:
+    print "g.leg1longpos "+str(g.leg1longpos)
+    print "g.leg2shortpos "+str(g.leg2shortpos)
+    
+    print "g.leg1shortpos "+str(g.leg1shortpos)
+    print "g.leg2longpos " +str(g.leg2longpos)
+    
+    if len(g.list)<=1:
         g.list.append(spread)
     
-    if g.list!=[] and spread>g.list[-1]+6:
-        if position_long0 and position_short1 and not position_long1 and not position_short0:
-            QuickInsertOrder(g.a, g.code[0], "sell", "close", pt, 1)
-            QuickInsertOrder(g.a, g.code[1], "buy", "close", pt, 1)
+    if len(g.list)>1 and spread>g.list[-2]+6:
+        print "满足平仓条件---------------"
+        if g.leg1longpos>0 and g.leg2shortpos>0 :
+            QuickInsertOrder(g.a, g.code[0], "sell", "close", pt, g.leg1longpos)
+            QuickInsertOrder(g.a, g.code[1], "buy", "close", pt, g.leg2shortpos)
             g.list.append(spread)
-    if g.list!=[] and spread<g.list[-1]-6:
-        if position_long1 and position_short0 and not position_long0 and not position_short1:
-            QuickInsertOrder(g.a, g.code[0], "buy", "close", pt, 1)
-            QuickInsertOrder(g.a, g.code[1], "sell", "close", pt, 1)
+    if len(g.list)>1 and spread<g.list[-2]-6:
+        print "满足平仓条件---------------"
+        if g.leg1shortpos>0 and g.leg2longpos>0 :
+            QuickInsertOrder(g.a, g.code[0], "buy", "close", pt, g.leg1shortpos)
+            QuickInsertOrder(g.a, g.code[1], "sell", "close", pt, g.leg2longpos)
             g.list.append(spread)
 
 def OnBar(context, code, type):
@@ -85,22 +126,25 @@ def OnBar(context, code, type):
     position_short0 = g.short_positions[g.code[0]]
     position_long1 = g.long_positions[g.code[1]]
     position_short1 = g.short_positions[g.code[1]]
-  
+#     print "position_long0 "+str(position_long0)
+#     print "position_short0 "+str(position_short0)
+#     print "position_long1 "+str(position_long1)
+#     print "position_short1 "+str(position_short1)
     # 计算价差
     spread = price0 - price1
     print "spread "+str(spread) 
 
-    if g.list==[]:
+    if len(g.list)<=1:
         g.list.append(spread)
     
-    print "spread "+str(spread)+" g.list[-1] "+str(g.list[-1])
-    if spread>g.list[-1]+6:
+    print "spread "+str(spread)+" g.list[-2] "+str(g.list[-2])
+    if spread>g.list[-2]+6:
         print "满足开仓条件 -----------------------------"
         QuickInsertOrder(g.a, g.code[0], "sell", "open", pt, 1)
         QuickInsertOrder(g.a, g.code[1], "buy", "open", pt, 1)
         g.list.append(spread)
         
-    if spread<g.list[-1]-6:
+    if spread<g.list[-2]-6:
         print "满足开仓条件 -----------------------------"
         QuickInsertOrder(g.a, g.code[0], "buy", "open", pt, 1)
         QuickInsertOrder(g.a, g.code[1], "sell", "open", pt, 1)
@@ -121,7 +165,7 @@ def OnBar(context, code, type):
             QuickInsertOrder(g.a, g.code[1], "sell", "close", pt, position_long1)
     
     if len(g.list)>10:
-        g.list=g.list[-10:]
+        g.list=g.list[-9:]
 
         
 def OnExchangeClose(context, accountname, exchangecode, productcode):
