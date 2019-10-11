@@ -2,7 +2,7 @@ def RankingContract(context,exchangecode,productcode,RankingCriteria):#期货合
     #exchangecode like "SHFE",productcode like "rb",RankingCriteria:1 for ranked by open interests,2 for ranking by trading volume
     #根据持仓量或成交量对期货合约进行排名
     contractlist=GetFuturesContracts(exchangecode,productcode) #获取主力合约排名
-    contractlist={}.fromkeys(contractlist).keys()
+    #contractlist={}.fromkeys(contractlist).keys()
     Rankedcontractlist=[]
     n=0
     if RankingCriteria==1: # to rank by open interests 根据持仓量排名
