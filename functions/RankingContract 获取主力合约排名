@@ -1,6 +1,6 @@
 def RankingContract(context,exchangecode,productcode,RankingCriteria):#exchangecode like "SHFE",productcode like "rb",RankingCriteria:1 for ranked by open interests,2 for ranking by trading volume
     contractlist=GetFuturesContracts(exchangecode,productcode) #获取主力合约排名
-    contractlist={}.fromkeys(contractlist).keys()
+    #contractlist={}.fromkeys(contractlist).keys()
     Rankedcontractlist=[]
     n=0
     if RankingCriteria==1: # to rank by open interests
