@@ -1,0 +1,45 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print("策略开始")
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    context.myacc = None
+    if "澎博模拟" in context.accounts :
+        print("登录交易账号[澎博模拟]")
+        if context.accounts["澎博模拟"].Login() :
+            context.myacc = context.accounts["澎博模拟"]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'SHFE':
+        return
+    #获取主力合约
+    g.code = GetMainContract('SHFE', 'rb',20)
+    #退订所有k线订阅
+    UnsubscribeAllBar()
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Min15) 
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype):
+    print('onbar')
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)
+    #计算均线
+    MA = GetIndicator("MA",code,params=(5,10),bar_type = BarType.Min15)
+    MA1 = MA["MA(5)"]
+    MA2 = MA["MA(10)"]
+    if len(MA2)<2:
+        return
+    #ma1上穿ma2时买入螺纹主力1手
+    elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:
+        QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now,10)
+    #ma1下穿ma2时卖出平仓
+    elif MA1[-1] <= MA2[-1] and MA1[-2]>MA2[-2]:
+        QuickInsertOrder(context.myacc,g.code,'sell','close',dyndata.now,10)
+        
