@@ -1,0 +1,159 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+from copy import *
+
+
+
+#开始时间，用于初始化一些参数
+#视频可见 video at https://www.bilibili.com/video/av69461082/?p=3
+def OnStart(context) :
+    print( "I\'m starting...")
+
+#     g.TimerID = SetTimer(2)
+    context.counter = 0
+    g.a = 0
+    context.MyAlarm1 = SetAlarm(datetime.time(9, 10), RepeatType.Daily)
+    context.MySchedule1 = SetSchedule(datetime.datetime(2018,9, 5, 9, 40), RepeatType.Daily)
+    if "澎博模拟" in context.accounts:
+        print ("登录交易账号[澎博模拟]")
+        if context.accounts["澎博模拟"].Login() :
+            context.myacc = context.accounts["澎博模拟"]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'SHFE':
+        return
+    #获取主力合约
+    context.myacc.Logout()
+    context.myacc.Login()
+    g.code = GetMainContract('SHFE', 'rb',20)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Min5) 
+    SubscribeQuote(g.code)
+ 
+
+def OnQuote(context,code) :
+    if g.a==0:
+        print ('调用到OnQuote事件')
+        g.a=1
+        
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype) :
+#     print('k线事件触发')
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)
+    #计算均线
+    MA = GetIndicator("MA",code,params=(5,10),bar_type = BarType.Min)
+    MA1 = MA["MA(5)"]
+    MA2 = MA["MA(10)"]
+    if len(MA2)<2:
+        return
+    #ma1上穿ma2时买入螺纹主力1手
+    elif MA1[-2] >= MA2[-2] and MA1[-3]<MA2[-3]:
+#         print('上穿开多')
+#         QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now,1)
+        TestSmartOrder(context,g.code) 
+    #ma1下穿ma2时卖出平仓
+#     elif MA1[-2] <= MA2[-2] and MA1[-3]>MA2[-3]:
+#         QuickInsertOrder(context.myacc,g.code,'sell','close',dyndata.now,1)
+        
+
+    
+# def OnOrderChange(context, AccountName, order) :
+#     print ("OrderChanged on " + order.id + " on " + AccountName)
+#     print ('委托单状态' +str( order.status))
+    
+# def OnTradeDeal(context, AccountName, trade) :
+#     print( "TradeDealed on " + trade.id + " on " + AccountName)
+#     print(trade.volume)
+    
+# def OnSmartOrderChange(context, AccountName, status):
+#     print("========智能单回报推送 账号名称:" + AccountName  )
+#     DumpSmartOrderStatus(status)
+    
+
+        
+# def DumpSmartOrderStatus(status):
+#     if not status:
+#         print("智能单状态对象为空。")
+#         return
+#     print("====智能单状态:")
+#     print("UID:"+str(status.UID)\
+#     + " 委托类型:"+str(status.OrderType)\
+#     + " 状态字:"+str(status.State)\
+#     + " 出错码:"+str(status.ErrorCode)\
+#     + " 出错信息:"+str(status.ErrorInfo)\
+#     + " 委托总数:"+str(status.VolumeTotal)\
+#     + " 已成交数:"+str(status.VolumeTraded)\
+#     + " 未拆数量"+str(status.VolumeRemain)\
+#     + " 追价总次数:"+str(status.ReorderTotal)\
+#     + " 已下单次数:"+str(status.OrderNbr))
+    
+# def OnExchangeClose(context, accountname, exchangecode, productcode):
+#     print( '收盘啦++++++++++++++++++++++' + '市场：'+str(exchangecode) + '品种： '+str(productcode))
+# def OnExchangeOpen(context, accountname, exchangecode, productcode):
+#     print ('开盘啦++++++++++++++++++++++' + '市场：'+str(exchangecode) + '品种： '+str(productcode))
+    
+def OnTradeAccountDisconnected(context, accountname):
+  print( '断线啦')
+  context.myacc.Logout()
+  g.timer = SetTimer(60)
+  print( '开启定时器')
+
+def OnTimer(context, timerid) :
+#   if timerid ==g.timer:
+#     print ('定时期开始')
+#     context.myacc.Logout()
+#     if context.myacc.Login():
+#       print ('重连成功啦')
+#       KillTimer(g.timer)
+#       print( '结束定时器')
+    context.counter += 1
+    print (str(context.counter) + " at " + str(GetCurrentTime()))
+    if context.counter >= 5 :
+        ret = KillTimer(g.TimerID)
+        if ret :
+            print("KillTimer " + str(timerid))
+
+    
+def OnAlarm(context, alarmid) :
+    print( "调用到闹钟" + str(GetCurrentTime()))
+    
+def OnSchedule(context, scheduleid) :
+    print( "调用到日程事件 " + str(GetCurrentTime()) +  str(scheduleid))
+    
+def TestSmartOrder(context, code) :
+    a = GetQuote(g.code)
+    OrderParam1 = OrderParam()    #生成一个OrderParam对象
+    OrderParam1.Code = g.code
+    OrderParam1.BSType = BSType.BuyOpen
+    aPriceType = deepcopy(PbPriceType.Limit)    #限价，别忘记from copy import *
+    aPriceType.LimitPriceType= 2     #最新价
+    aPriceType.LimitPriceOffset = 10    #限价超价；不需要超价时，可不写
+    OrderParam1.PyPriceType = aPriceType
+    OrderParam1.Volume    = 12
+    SplitOrderParam1 = SplitOrderParam()    #生成一个SplitOrderParam对象
+    SplitOrderParam1. Mode = 2  #拆单方式: 0-不拆单 1-固定拆单.2-随机拆单 
+    SplitOrderParam1. TimeSpan = 100    #下单的间隔时间(毫秒)
+    #随机拆单
+    SplitOrderParam1. RandomSplit.Threshold = 10     #阈值: 大于5手
+    SplitOrderParam1. RandomSplit.LowerLimit = 3    #每次委托下限数量
+    SplitOrderParam1. RandomSplit.UpperLimit = 6    #每次委托上限数量
+    #追单参数
+    ReorderParam1 = ReorderParam()
+    ReorderParam1 .PriceType = '2'  #价格类型: 限价(默认)
+    ReorderParam1 .LimitPriceType= 16  #限价类型:对手价
+    ReorderParam1 .LimitPriceOffset = 2    #限价超价
+    ReorderParam1 .RepeatTotal = 3        #追价总次数
+    ReorderParam1 .MaxaPriceOffset = 100 #追价与首次下单价之差的最大价位
+    ReorderParam1 .TimeOut = 800        #超时撤单时间(单位：ms)，=0时，不追单
+    #最后撤单参数
+    CancelOrderParam1 = CancelOrderParam()
+    CancelOrderParam1 .TimeOut = 1500   #最后超时撤单时间(单位：ms)
+    ret = context.myacc.InsertSmartOrder(OrderParam1,SplitOrderParam1,ReorderParam1,CancelOrderParam1) 
+    if ret and ret.UID:
+        g.UID3 = ret.UID    #成功，记录智能单ID
