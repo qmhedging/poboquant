@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+
+
+#开始时间，用于初始化一些参数
+#视频可见 video at https://www.bilibili.com/video/av69461082/?p=8
+def OnStart(context):
+    g.code = "rb2001.SHFE"
+    SubscribeBar( "rb2001.SHFE",BarType.Min5)
+    context.MyAlarm1 = SetAlarm(datetime.time(9, 40))
+
+
+    
+# def OnBar(context,code,bartype):
+#     #Macd
+#     macd = GetIndicator("MACD",g.code,bar_type = BarType.Min5)
+
+    
+#     dif = macd["DIF"]
+# #     print(dif)
+#     print(dif[-5:])
+    
+#     dea = macd["DEA"]
+#     print(dea[-5:])
+    
+#     if dif[-1] >= dea[-1] and dif[-2]<dea[-2]:
+#         print('上穿')
+#     elif dif[-1] <= dea[-1] and dif[-2]>dea[-2]:
+#         print('下穿')
+
+        
+def OnAlarm(context, alarmid) :        
+    #历史波动率
+    klinedate = GetHisDataByField2('510050.SHSE',["close"], bar_type=BarType.Day,count = 60)
+    b = CreateCalcObj()
+    vl=b.GetVolatility(klinedate)
+    print('历史波动率'+str(vl))
+    
+    volatility = GetVolatilityByCode("510050.SHSE", count = 60)
+    print('历史波动率'+str(volatility))
+    
+
+    #隐含波动率
+    optioncode = GetAtmOptionContractByPos( "510050.SHSE", "now",0, 1,0)
+    print(optioncode)
+    info1 = GetContractInfo(optioncode)
+    n = float((info1['行权到期日']-GetCurrentTime().date()).days)/365
+    hv = CreateCalcObj()
+    
+    Imp= hv.GetImpliedVolatility(info1['期权种类'],info1['期权类型'], GetQuote('510050.SHSE').now,info1['行权价格'],vl,0.03153,n,GetQuote(optioncode).now)
+    print('隐含波动率'+str(Imp))
+    
+    #理论价格
+#     BSPrice = GetOptionBSPriceByCode("m2001-C-2850.DCE",60, pricetype = "now",r = 0.04)
+#     print('理论价格'+str(BSPrice))
+    
+    #希腊字母
+    OptionDelta = GetOptionDeltaByCode(optioncode, 60, pricetype = "now",r=0.04)
+    print('delta:' + str(OptionDelta))
+
+    OptionTheta = GetOptionThetaByCode(optioncode, 60, pricetype = "now" )
+
+    OptionGamma = GetOptionGammaByCode(optioncode, 60, pricetype = "now" )
+
+    OptionVega = GetOptionVegaByCode(optioncode, 60, pricetype = "now" )
+
+    OptionRho = GetOptionRhoByCode(optioncode, 60, pricetype = "now" )
+
