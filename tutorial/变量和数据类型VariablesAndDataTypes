@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+
+#开始时间，用于初始化一些参数
+#对应视频 video at https://www.bilibili.com/video/av69461082/?p=4
+def OnStart(context) :
+    a = 1
+    g.c = a +1
+#     print (c)
+
+    context.d = '上下文信息'
+
+    
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange == 'SHFE' and daynight == 'night':
+#         print (g.c)
+#         context.accounts['回测期货'].Login()
+#         print(context.backtest)
+#         print(context.param['ivol'])
+#         print(context.d)
+
+#         e=3.14
+#         f = '2'
+#         d = e + g.c
+#         print(d)
+#         print(type(g.c))
+#         print(type(f))
+
+
+        #list列表
+#         kline = GetHisDataByField2('rb2001.SHFE',["close"], bar_type=BarType.Day,count = 5)
+#         print(kline)
+#         print(kline[0])
+#         print(kline[2:])
+#         print(kline[-2:])
+#         print(kline[:-2])
+        
+        #词典
+        info2 = GetContractInfo("m2001-C-2800.DCE")
+        print(info2)
+        print(info2['最后交易日'])
+        cutime = GetCurrentTime().date()
+        n = (info2['最后交易日'] - cutime).days
+        print(n)        
+        print(info2['期权标的'])
+            
+        
+    
