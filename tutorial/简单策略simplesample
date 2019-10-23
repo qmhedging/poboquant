@@ -4,6 +4,7 @@ from PoboAPI import *
 import datetime
 import numpy as np
 #开始时间，用于初始化一些参数
+#视频可见 video at https://www.bilibili.com/video/av69461082/?p=2
 def OnStart(context) :
     print("策略开始")
     #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
