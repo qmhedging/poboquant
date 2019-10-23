@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+#视频可见 video at https://www.bilibili.com/video/av69461082/?p=5
+#开始时间，用于初始化一些参数
+def OnStart(context):
+    a =1
+    print(a)
+
+    if context.accounts["回测期货"].Login() :
+        context.myacc = context.accounts["回测期货"]
+        context.MyAlarm1 = SetAlarm(datetime.time(9, 10))
+        context.MyAlarm2 = SetAlarm(datetime.time(14, 55))
+
+    
+def OnAlarm(context, alarmid) :
+    if alarmid == context.MyAlarm1:
+        
+        
+      QuickInsertOrder(context.myacc,'rb2001.SHFE','buy','open',PriceType(PbPriceType.Limit,limit_price_type=16),10)
+      QuickInsertOrder(context.myacc,'m2001.DCE','buy','open',PriceType(PbPriceType.Limit,limit_price_type=16),10)
+      QuickInsertOrder(context.myacc,'cu2001.SHFE','buy','open',PriceType(PbPriceType.Limit,limit_price_type=16),10)
+        
+    elif alarmid == context.MyAlarm2:
+    
+        positions = context.myacc.GetPositions()
+        print(positions)
+#         print(len(positions))
+
+        i=0
+        while i<len(positions):
+            print(positions[i].contract) 
+            print(positions[i].volume) 
+            i+=1
+
+            
+#         for posi in positions:
+#             print (posi.contract)
+#             print (posi.openavgprice)
+        
+        for posi in positions:
+        
+            if posi.contract == 'cu2001.SHFE':
+                break
+            print (posi.contract)
+            print ('==================')
+            
+        for posi in positions:
+            if posi.contract == 'cu2001.SHFE':
+                continue
+            print (posi.contract)
+            QuickInsertOrder(context.myacc,posi.contract,'sell','close',PriceType(PbPriceType.Limit,limit_price_type=16),10)
+            
+            
