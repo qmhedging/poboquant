@@ -1,0 +1,86 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+
+#开始时间，用于初始化一些参数
+#视频可见 video at https://www.bilibili.com/video/av69461082/?p=6
+def OnStart(context) :
+    print("I\'m starting...")
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    context.myacc = None
+    if "回测期货" in context.accounts :
+        print("登录交易账号[回测期货]")
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'SHFE':
+        return
+    #获取主力合约
+    g.opentime = GetCurrentTime()
+    g.code = GetMainContract('SHFE', 'rb',20)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Min) 
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype):
+    a = GetMinChange(g.code)
+    print(a)
+    b  = GetTradingDayLeft(g.code)
+    print(b)
+    
+    cutime = GetCurrentTime()
+#     print(cutime)
+    
+#     cur_trade_day = GetCurrentTradingDate('SHFE')
+#     print(cur_trade_day)
+    
+#     pre_trade_time = GetPreviousTradingDate('SHFE',cur_trade_day)
+#     print(pre_trade_time)
+    
+#     nex_trade_time = GetNextTradingDate('SHFE',cur_trade_day)
+#     print(nex_trade_time)
+    
+    d = GetTradingDates('SHFE',20190801,20190930)
+#     print(d)
+#     print(d[4])
+#     print(len(d))
+#     SetLogLevel(LogType.UserLog,LogLevel.Error)
+#     log.error("这是一条error日志")
+#     log.warn("这是一条warn日志")
+#     log.info("这是一条info日志")
+#     log.debug("这是一条debug日志")    
+#     knum = BarsSinceToday(g.opentime,g.code,BarType.Min)
+#     print(knum)
+    
+#     mc = GetMinChange(g.code)
+#     print(mc)
+
+# def BarsSinceToday(opentime,code,BarType):
+#     dfd = GetHisDataByFieldAsDF(code, "close", bar_type=BarType, start_date=opentime)
+#     return len(dfd)
+
+
+def GetMinChange(code):
+    a=GetExchangeByCode(code)
+    b=GetVarietyByCode(code)
+    codeinfo=GetVarietyInfo(a,b)
+    return codeinfo['最小变动价位']
+
+def GetTradingDayLeft(code):
+    import re 
+    m=re.match(r'[a-z]+[0-9]+\.+[A-Z]',code)
+    if m:
+      info=GetContractInfo(code) 
+      T=info['最后交易日']
+      exchange=GetExchangeByCode(code)
+      t=GetCurrentTradingDate(exchange)
+      return (T-t).days
+    else:
+      info=GetContractInfo(code) 
+      T=info['行权到期日']
+      exchange=GetExchangeByCode(code)
+      t=GetCurrentTradingDate(exchange)
+      return (T-t).days
