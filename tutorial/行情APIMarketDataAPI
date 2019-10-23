@@ -1,0 +1,59 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+
+
+#开始时间，用于初始化一些参数
+#视频可见 video at https://www.bilibili.com/video/av69461082/?p=9
+def OnStart(context):
+    context.MyAlarm1 = SetAlarm(datetime.time(9, 40))
+
+
+    
+def OnAlarm(context, alarmid) :
+    
+    
+    code ='rb2001.SHFE'
+    
+    #获取逐笔行情
+#     quote = GetQuote(zhuli)
+#     print(quote)
+#     print(quote.now)
+#     print(quote.time)
+    
+#     获取k线数据
+#     kline = GetHisData2(code, bar_type=BarType.Min,count = 10)
+#     print(kline)
+#     print(kline[-1].close)
+    
+#     klinedate = GetHisDataByField2(code,['open',"close"], bar_type=BarType.Min,count = 10)
+#     print(klinedate)
+    
+    
+#     df = GetHisDataAsDF(code,bar_type=BarType.Min, start_date=None, end_date=GetCurrentTime(), count=10, weight_type=0)
+#     print(df)
+#     print(df.columns[1])
+#     print(df.head(2))
+#     print(df.close)
+#     print(df.close[0:5])
+    
+    
+#     info1 = GetContractInfo(code)
+#     print(info1)
+#     print(info1['最后交易日'])
+    
+    #获取期货主力合约
+    zhuli = GetMainContract('SHFE', 'ag',20)
+    print(zhuli)
+    quote = GetQuote(zhuli)
+    print(quote.now)
+    
+    #获取股票期权合约
+    optioncode = GetAtmOptionContractByPos("510050.SHSE", "now",-1,0,1)
+    print(optioncode)
+    
+    #获取期货期权合约
+    optioncode2 = GetAtmOptionContractByPos("m2001.DCE", "open",0,0,None)
+    print(optioncode2)
+    kline = GetHisData2(optioncode2, bar_type=BarType.Min,count = 10)
+    print(kline)
