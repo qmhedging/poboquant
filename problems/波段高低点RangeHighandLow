@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print("I\'m starting...")
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    context.myacc = None
+    g.account="回测证券"
+    if g.account in context.accounts :
+        print("登录交易账号 "+str(g.account))
+        if context.accounts[g.account].Login() :
+            context.myacc = context.accounts[g.account]
+            print("登录账户成功！")
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'SHSE':
+        return
+    #获取主力合约
+    #g.code = GetMainContract('SHSE', 'rb',20)
+    g.code="510050.SHSE"
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Day)
+    klinedate = GetHisDataByField2(g.code,[  "high", "low"], bar_type=BarType.Day,count = 50)
+    #擦最近50根K线
+    rangehigh=max(klinedate[0])#取区间高点
+    rangelow=min(klinedate[1])#取区间低点
+    
+    print("区间高点 "+str(rangehigh)+" 区间低点 "+str(rangelow))
+    
+    
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype):
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)
+    print("close "+str(dyndata.close))
+    #计算均线
+    MA = GetIndicator("MA",code,params=(5,10),bar_type = BarType.Day)
+    MA1 = MA["MA(5)"]
+    MA2 = MA["MA(10)"]
+    if len(MA2)<2:
+        return
+    #ma1上穿ma2时买入螺纹主力1手
+    elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:
+        QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now,10)
+    #ma1下穿ma2时卖出平仓
+    elif MA1[-1] <= MA2[-1] and MA1[-2]>MA2[-2]:
+        QuickInsertOrder(context.myacc,g.code,'sell','close',dyndata.now,10)
+        
