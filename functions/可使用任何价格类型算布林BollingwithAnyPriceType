@@ -1,0 +1,26 @@
+def BollingerBand(code,length,frequency,pricetype,numstd):
+    #cal bolling with code ,length of data points, time frequency, pricetype and number of stds
+    average=0
+    upper=0
+    lower=0
+    #code = 'm1901.DCE'
+    option = PBObj()
+    option.EndDate = GetCurrentTime()
+    option.Count = length
+    #获取最近10天的开高低收价格列表
+    #kline = GetHisDataByField(g.code, BarType.Day, [pricetype], option)
+    kline = GetHisDataByField(code, frequency, [pricetype], option)
+    if len(kline)>0:
+        
+        #average=sum(kline)/len(kline) #n天价格均值
+        average=np.mean(kline)
+        
+        std=np.std(kline,ddof=1)
+        
+        upper=average+std*numstd
+        
+        lower=average-std*numstd
+        
+        
+        
+    return [average,upper,lower] 
