@@ -1,0 +1,143 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+
+#开始时间，用于初始化一些参数  分钟级别策略
+def OnStart(context) :
+    print("I\'m starting...")
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    context.myacc = None
+    if "回测期货" in context.accounts :
+        print("登录交易账号[回测期货]")
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'SHFE':
+        return
+    #获取主力合约
+    g.code = GetMainContract('SHFE', 'rb',20)
+    g.longpos=0#初始化持仓手数
+    g.nextopenprice=0#初始化加仓价格
+    
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Min)
+    g.openflag=0 #新开仓标志
+    option = PBObj()
+    option.contract=g.code
+    option.buysellflag = '0'
+    positions = context.accounts["回测期货"].GetPositions(option)
+    
+    if len(positions)>0: #开盘持仓检查 已经有持仓
+        
+        g.openprice=positions[0].openavgprice #开仓均价
+        
+        g.longpos=positions[0].availvolume #持仓数量
+        
+    if len(positions)==0:
+    
+        g.openflag=1
+    
+        
+ 
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype):
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)
+    
+    
+    if g.openflag==1 and dyndata.now>0:#没有持仓，需要新开仓
+        
+        
+        QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now+10,10)
+        
+    if g.longpos>0 and dyndata.now>0:
+        
+        if g.nextopenprice>dyndata.now:#加仓条件 
+            print("满足加仓条件 "+str(g.nextopenprice) +" "+str(dyndata.now))
+            QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now+10,1)
+            
+        if g.openprice<dyndata.now-30:#平仓条件 市场价格高于持仓均价30点 
+            print("满足平仓条件 "+str(g.openprice) +" "+str(dyndata.now))
+            QuickInsertOrder(context.myacc,g.code,'sell','close',dyndata.now-10,g.longpos)
+            
+    #处理非主力持仓
+    option = PBObj()
+    #option.contract=g.code
+    option.buysellflag = '0'
+    positions = context.accounts["回测期货"].GetPositions(option)
+    
+    if len(positions)>0:
+        
+        for i in positions:
+            
+            if i.contract!=g.code: #有非主力持仓
+                
+                
+                QuickInsertOrder(context.myacc,i.contract,'sell','close',GetQuote(i.contract).now-30,i.volume)
+                
+                
+    
+    
+    
+    
+    
+            
+            
+
+
+def OnTradeDeal(context, AccountName, trade) :
+    print("TradeDealed on " + str(trade.id) + " on " + str(AccountName))
+    
+    if trade.bstype.BuySellFlag=="0":
+        
+        
+        g.nextopenprice=trade.price-30 #下一个加仓价位
+        
+        
+        print("下一个加仓价格为 "+str(g.nextopenprice))
+        
+        
+    
+    #在ontradedeal查持仓
+    option = PBObj()
+    option.contract=g.code
+    option.buysellflag = '0'
+    positions = context.accounts["回测期货"].GetPositions(option)
+    
+    if len(positions)==0: #完全平仓的情况
+        
+        g.longpos=0  
+    
+    
+    if len(positions)>0:
+        
+        g.openflag=0
+        
+        g.openprice=positions[0].openavgprice
+        
+        g.longpos=positions[0].availvolume
+        
+        
+        
+        
+        
+       
+        
+        
+        
+        
+        
+        
+        
+    
+    
+    
+    
+    
+        
