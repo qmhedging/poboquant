@@ -1,0 +1,145 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import time
+import numpy as np
+from copy import *
+
+
+#开始时间，用于初始化一些参数 期权的日历价差 日线级别
+def OnStart(context) :
+    context.myacc = None
+    #登录交易账号
+    if context.accounts["回测期权"].Login() :
+        context.myacc = context.accounts["回测期权"]
+
+#每天行情初始化的，获取当前的50etf对应的平值期权
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    #过滤掉非上交所的信号
+    if exchange != 'SHSE':
+        return
+    #获取期权标的
+    g.biaodi = '510050.SHSE'
+    klinedata = GetHisData2(g.biaodi,BarType.Day)
+    g.lastclose = klinedata[-1].close
+    #获取当月平价认购期权
+    g.op1,g.op2=GetOP(g.biaodi,"call",g.lastclose)
+    
+    #g.closeflag=0
+    #订阅日K线用来驱动onbar事件
+    SubscribeBar(g.biaodi,BarType.Day)
+    
+def GetOP(code,opttype,strike):
+    
+    #GetAtmOptionContract(ObjectStockCode, ExcuteDate, ObjectStockPrice, type, AdjustFlag = 'A')
+    if opttype=="call":
+        
+        optype=0
+        
+    if opttype=="put":
+        
+        opttype=1
+        
+        
+ 
+    #只取下月下季合约
+    opt1=GetAtmOptionContract(code,1,strike,optype)#下月 卖头寸
+    opt2=GetAtmOptionContract(code,2,strike,optype)#下季 买头寸
+    
+    return opt1,opt2
+    
+    
+    
+  
+#在k线出现的时候，如果没持仓就卖开，如果有就平仓
+def OnBar(context,code,bartype):
+    if code!=g.biaodi:
+        
+        return
+    
+
+    
+    
+    posi = context.myacc.GetPositions() #获取所有持仓
+    if len(posi) == 0:
+        print("还无持仓")
+        
+        stockprice=GetQuote(g.biaodi).now
+        strikeprice=GetContractInfo(g.op1)["行权价格"]
+        volatility=0.2
+        r=0.04
+        
+        t1=GetTradingDayLeft(g.op1)/365.0
+        t2=GetTradingDayLeft(g.op2)/365.0
+        
+        optionprice1=GetQuote(g.op1).now
+        optionprice2=GetQuote(g.op2).now
+        
+        
+        b1 = CreateCalcObj()
+        #GetImpliedVolatility(direct, type, stockprice, strikeprice, volatility, r, t,optionprice)
+        IVFront = b1.GetImpliedVolatility(0, 0, stockprice, strikeprice, volatility, r, t1,optionprice1)
+        b2=CreateCalcObj()
+        IVBack = b2.GetImpliedVolatility(0, 0, stockprice, strikeprice, volatility, r, t2,optionprice2)
+        
+        
+        print("iv front "+str(IVFront)+" iv back "+str(IVBack))
+        
+        if IVFront-IVBack>0.02 and GetTradingDayLeft(g.op1)>15:
+            
+            print("满足开仓条件")
+            
+            QuickInsertOrder(context.myacc,g.op1,'sell','open',optionprice1,10)
+            
+            QuickInsertOrder(context.myacc,g.op2,'buy','open',optionprice2,10)
+            
+
+    elif len(posi)>0 : #已经有持仓
+        
+        for i in posi:
+            
+            #print("len(posi) "+str(len(posi))+"GetTradingDayLeft(i.contract) "+str(GetTradingDayLeft(i.contract)))
+            
+            if i.bstype.BuySellFlag=="1" and GetTradingDayLeft(i.contract)<=10:
+                
+                print("满足平仓条件")
+                
+                QuickInsertOrder(context.myacc,i.contract,'buy','close',GetQuote(i.contract).now,i.volume) #平仓空头
+                
+                for i in posi:
+                    
+                
+                    if  i.bstype.BuySellFlag=="0":
+
+
+                        QuickInsertOrder(context.myacc,i.contract,'sell','close',GetQuote(i.contract).now,i.volume) #平仓多头
+                
+                
+                
+                
+                
+                
+                
+        
+        
+#         opcode = posi[0].contract
+#         print("买平")
+#         #下单买平,16表示对手价,平掉现有仓位的所有手数
+#         QuickInsertOrder(context.myacc,opcode,'buy','close',PriceType(PbPriceType.Limit,16),posi[0].volume)
+    #UnsubscribeBar(g.atmopc,BarType.Day)
+def GetTradingDayLeft(code):
+    import re 
+    m=re.match(r'[a-z]+[0-9]+\.+[A-Z]',code)
+    if m:
+      info=GetContractInfo(code) 
+      T=info['最后交易日']
+      exchange=GetExchangeByCode(code)
+      t=GetCurrentTradingDate(exchange)
+      return (T-t).days
+    else:
+      info=GetContractInfo(code) 
+      T=info['行权到期日']
+      exchange=GetExchangeByCode(code)
+      t=GetCurrentTradingDate(exchange)
+      return (T-t).days
