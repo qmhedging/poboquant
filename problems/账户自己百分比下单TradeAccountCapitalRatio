@@ -1,0 +1,112 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+
+#开始时间，用于初始化一些参数.日线级别回测
+def OnStart(context) :
+    print("I\'m starting...")
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    context.myacc = None
+    if "回测期货" in context.accounts :
+        print("登录交易账号[回测期货]")
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'SHFE':
+        return
+    #获取主力合约
+    g.code = GetMainContract('SHFE', 'rb',20)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Day) 
+
+def FutWithAccountCapitalPercent(context,percent,code,price):
+    #查期货合约的可开手数.输入参数为context，百分比（例如0.15代表15%），合约价格
+    bal = context.myacc.AccountBalance
+    
+    
+    TotalBalance=bal.AssetsBalance
+    
+    AvailableBalance=bal.AvailableMargin
+    
+    if TotalBalance*percent<=AvailableBalance:
+        
+        print(str(percent)+ " 比例账户资金为 "+str(TotalBalance*percent)+" 可供交易")
+        
+        margin_value = context.myacc.GetMargin(code,BSType.BuyOpen)
+#         print(margin_value.Rate)
+#         print(margin_value.Unit)
+        if margin_value.Rate>0:
+        
+           contractmargin=GetContractInfo(code)["合约乘数"]*price*margin_value.Rate
+        
+           #print("contractmargin "+str(contractmargin))
+        
+           if contractmargin>0:
+            
+        
+               NumCanTrade=int(TotalBalance*percent/contractmargin)
+            
+               print("NumCanTrade "+str(NumCanTrade)) 
+        
+           else:
+            
+               print("未取得保证金数据")
+            
+            
+               NumCanTrade=0
+    else:
+        
+        print("可用资金不足")
+        
+        
+        NumCanTrade=0
+        
+    return NumCanTrade   #计算得到交易手数  
+            
+            
+            
+        
+        
+    
+    
+    
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype):
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)
+    
+    #查持仓
+    posvol=0 #初始化持仓为0
+    option = PBObj()
+    option.buysellflag = '0'
+    
+    positions = context.accounts["回测期货"].GetPositions(option)
+    
+    if len(positions)>0:
+        
+        for i in positions:
+            
+            poscontract=i.contract
+            
+            posvol=i.volume
+    
+    
+    #计算均线
+    MA = GetIndicator("MA",code,params=(5,10),bar_type = BarType.Day)
+    MA1 = MA["MA(5)"]
+    MA2 = MA["MA(10)"]
+    if len(MA2)<2:
+        return
+    #ma1上穿ma2时买入螺纹主力1手
+    elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:#开仓
+        QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now,FutWithAccountCapitalPercent(context,0.15,g.code,dyndata.now))
+    #ma1下穿ma2时卖出平仓
+    elif MA1[-1] <= MA2[-1] and MA1[-2]>MA2[-2] and posvol>0:#平仓
+        posprice=GetQuote(poscontract).now
+        QuickInsertOrder(context.myacc,poscontract,'sell','close',dyndata.now,posvol)
