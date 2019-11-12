@@ -1,0 +1,72 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print("I\'m starting...")
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    context.myacc = None
+    if "回测期货" in context.accounts :
+        print("登录交易账号[回测期货]")
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'SHFE':
+        return
+    #获取主力合约
+    g.code = GetMainContract('SHFE', 'rb',20)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Day) 
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype):
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)
+    #计算均线
+    MA = GetIndicator("MA",code,params=(5,10),bar_type = BarType.Day)
+    MA1 = MA["MA(5)"]
+    MA2 = MA["MA(10)"]
+    if len(MA2)<2:
+        return
+    #ma1上穿ma2时买入螺纹主力1手
+    elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:
+        uidopen=QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now-50,10)
+        
+        if uidopen:
+        
+            print("uidopen "+str(uidopen))
+            orderdata = context.myacc.GetOrder(uidopen)
+
+            if orderdata:#此时并不能查询委托
+                print("open order status "+str(orderdata.status))
+        else:
+            
+            print("买开委托出错")
+            
+                
+    #ma1下穿ma2时卖出平仓
+    elif MA1[-1] <= MA2[-1] and MA1[-2]>MA2[-2]:
+        uidclose=QuickInsertOrder(context.myacc,g.code,'sell','close',dyndata.now+50,10)
+        
+        if uidclose:#如果委托生成 
+        
+            print("uidclose "+str(uidclose))
+
+            orderdata = context.myacc.GetOrder(uidclose)
+            if orderdata:#演示 此时并不能查询委托
+                print("close order status "+str(orderdata.status))
+                
+        else:
+            
+            print("卖平委托出错")
+                
+
+def OnOrderChange(context, AccountName, order) :
+    print("OrderChanged on " + order.UID + " on " + AccountName+" 状态 "+str(order.status))
+    print("是否可撤 "+str(order.IsCanCancel()))
