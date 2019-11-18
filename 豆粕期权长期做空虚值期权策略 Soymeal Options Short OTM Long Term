@@ -47,20 +47,20 @@ def Getop(code):
     atmopp = GetAtmOptionContract(code,month_time,now50,1)
     return atmopc,atmopp
   
-def stime(op):
-    info1 = GetContractInfo(op)
-    kill = info1['行权到期日']
-    print str(type(kill))
-    cutime = GetCurrentTime()
-    if cutime.day <10:
-        cutim = str(cutime.year) + str(cutime.month) + '0' +str(cutime.day)
-    elif cutime.month <10:
-        cutim = str(cutime.year) + '0' + str(cutime.month) +str(cutime.day)
-    else:
-        cutim = str(cutime.year) + str(cutime.month) +str(cutime.day)
-    cu = int(cutim)
-    n = kill - cu
-    return n
+# def stime(op):
+#     info1 = GetContractInfo(op)
+#     kill = info1['行权到期日']
+#     print str(type(kill))
+#     cutime = GetCurrentTime()
+#     if cutime.day <10:
+#         cutim = str(cutime.year) + str(cutime.month) + '0' +str(cutime.day)
+#     elif cutime.month <10:
+#         cutim = str(cutime.year) + '0' + str(cutime.month) +str(cutime.day)
+#     else:
+#         cutim = str(cutime.year) + str(cutime.month) +str(cutime.day)
+#     cu = cutim#int(cutim)
+#     n = kill - cu
+#     return n
     
 #实时行情事件，当有新行情出现时调用该事件
 def OnQuote(context, code) :
@@ -114,7 +114,7 @@ def OnQuote(context, code) :
         ki1 = info1['行权到期日']
         info2 = GetContractInfo(opcode2)
         pr2 = info2['行权价格']
-        sy = stime(opcode1)
+        sy = GetTradingDayLeft(opcode1)
         print str(pr1) + '行权价格'
         print str(pr2) + '行权价格2'
         print sy
@@ -129,4 +129,19 @@ def OnOrderChange(context, AccountName, order) :
     #打印委托信息，id是编号，volume是数量，详细见API文档
     print "委托编号： " + order.id + "   账号名称： " + AccountName
     print "Vol: " + str(order.volume) + " Price: " + str(order.price)
-
+    
+def GetTradingDayLeft(code):
+    import re 
+    m=re.match(r'[a-z]+[0-9]+\.+[A-Z]',code)
+    if m:
+      info=GetContractInfo(code) 
+      T=info['最后交易日']
+      exchange=GetExchangeByCode(code)
+      t=GetCurrentTradingDate(exchange)
+      return (T-t).days
+    else:
+      info=GetContractInfo(code) 
+      T=info['行权到期日']
+      exchange=GetExchangeByCode(code)
+      t=GetCurrentTradingDate(exchange)
+      return (T-t).days    
