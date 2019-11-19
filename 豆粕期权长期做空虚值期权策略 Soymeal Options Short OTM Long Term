@@ -10,12 +10,12 @@ import numpy as np
 def OnStart(context) :
     print "I\'m starting..."
     #设定一个全局变量品种
-    g.code = GetMainContract('DCE','m',20)
+    #g.code = GetMainContract('DCE','m',20)
     #print '豆粕主力：' + str(g.code)
     #订阅实时数据，用于驱动OnQuote事件
-    SubscribeQuote(g.code)
+    #SubscribeQuote(g.code)
     #订阅K线数据，用于驱动OnBar事件
-    SubscribeBar(g.code, BarType.Day)
+    #SubscribeBar(g.code, BarType.Day)
     #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
     context.myacc = None
     if context.accounts.has_key("回测期货") :
@@ -23,6 +23,21 @@ def OnStart(context) :
         if context.accounts["回测期货"].Login() :
             context.myacc = context.accounts["回测期货"]
 
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    
+    
+    
+    if exchange <> "DCE" and daynight<>'night':
+            
+            return
+    
+    g.code = GetMainContract('DCE','m',20)
+    
+    SubscribeBar(g.code, BarType.Day)
+    
+    print "g.code "+str(g.code)
+    
+    
 
             
 def Getop(code):
@@ -63,7 +78,9 @@ def Getop(code):
 #     return n
     
 #实时行情事件，当有新行情出现时调用该事件
-def OnQuote(context, code) :
+#def OnQuote(context, code) :
+def OnBar(context,code,bartype):
+    
     g.code = GetMainContract('DCE','m',20)
     print '豆粕主力：' + str(g.code)
     #过滤掉不需要的行情通知
@@ -93,7 +110,7 @@ def OnQuote(context, code) :
         print "历史波动率"
         print c
 
-    if len(posi) == 0 and c<0.20:
+    if len(posi) == 0 and c<=0.17:
         opc,opp = Getop(g.code)
         print "目标call" + str(opc) + " 目标put " + str(opp)
         dync = GetQuote(opc)
@@ -103,6 +120,16 @@ def OnQuote(context, code) :
             log.info("最新价3: " + str(dynp.now))
             context.myacc.InsertOrder(opc, BSType.SellOpen, dync.now, 100)
             context.myacc.InsertOrder(opp, BSType.SellOpen, dynp.now, 100)
+            
+            
+    if len(posi)==1:#出现瘸腿
+        
+        print "需要平仓瘸腿 "
+        
+        context.myacc.InsertOrder(posi[0].contract, BSType.BuyClose, GetQuote(posi[0].contract).now+20, posi[0].volume)
+        
+        
+        
     elif len(posi) >1:
         print len(posi)
         opcode1 = posi[0].contract
@@ -119,11 +146,14 @@ def OnQuote(context, code) :
         print str(pr2) + '行权价格2'
         print sy
         if sy<2: #平仓的时间条件
-            context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now, 100)
-            context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now, 100)
-        elif now1 >= pr1-100 or now1 <= (pr1-250): #平仓价格条件
-            context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now, 100)
-            context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now, 100)
+            context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now+10, 100)
+            context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now+10, 100)
+        elif now1 >= pr1+300 or now1 <= (pr1-300): #平仓价格条件
+            context.myacc.InsertOrder(opcode1, BSType.BuyClose, dyn1.now+10, 100)
+            context.myacc.InsertOrder(opcode2, BSType.BuyClose, dyn2.now+10, 100)
+            
+            
+    UnsubscribeAllBar() #退订所有k线，避免重复订阅       
 #委托回报事件，当有委托回报时调用
 def OnOrderChange(context, AccountName, order) :
     #打印委托信息，id是编号，volume是数量，详细见API文档
