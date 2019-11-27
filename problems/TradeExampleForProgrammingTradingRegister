@@ -1,0 +1,76 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import time
+import numpy as np
+from copy import *
+#用于程序化接入报备的期权交易例子
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    context.myacc = None
+    #登录交易账号
+    if context.accounts["回测期权"].Login() :
+        context.myacc = context.accounts["回测期权"]
+
+#每天行情初始化的，获取当前的50etf对应的平值期权
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    #过滤掉非上交所的信号
+    if exchange != 'SHSE':
+        return
+    #获取期权标的
+    g.biaodi = '510050.SHSE'
+    klinedata = GetHisData2(g.biaodi,BarType.Day)
+    lastclose = klinedata[-1].close
+    #获取当月平价认购期权
+    g.atmopc = GetAtmOptionContract(g.biaodi,0,lastclose,0)#认购
+    g.atmopp = GetAtmOptionContract(g.biaodi,0,lastclose,1)#认沽
+    print("认购 "+str(g.atmopc)+"  认沽 "+str(g.atmopp))
+    #订阅日K线用来驱动onbar事件
+    SubscribeBar(g.atmopc,BarType.Min)#在分钟线交易
+  
+#在k线出现的时候，如果没持仓就卖开，如果有就平仓
+def OnBar(context,code,bartype):
+    posi = context.myacc.GetPositions() #获取所有持仓
+    
+    #根据需要注释掉不用的部分
+    if len(posi) == 0:
+        
+        print("买开认购")
+        QuickInsertOrder(context.myacc,g.atmopc,'buy','open',PriceType(PbPriceType.Limit,2),10)
+        
+        print("卖开认购")
+        #下单卖开,2表示最新价
+        QuickInsertOrder(context.myacc,g.atmopc,'sell','open',PriceType(PbPriceType.Limit,2),10)
+        
+        print("买开认沽")
+        QuickInsertOrder(context.myacc,g.atmopp,'buy','open',PriceType(PbPriceType.Limit,2),10)
+        
+        print("卖开认沽")
+        QuickInsertOrder(context.myacc,g.atmopp,'sell','open',PriceType(PbPriceType.Limit,2),10)
+        
+    #根据需要注释掉不用的部分    
+    elif len(posi) >0:
+        opcode = posi[0].contract
+        
+        print("卖平认购")
+        #下单买平,16表示对手价,平掉现有仓位的所有手数
+        QuickInsertOrder(context.myacc,opcode,'sell','close',PriceType(PbPriceType.Limit,16),posi[0].volume)
+        
+        print("买平认购")
+        #下单买平,16表示对手价,平掉现有仓位的所有手数
+        QuickInsertOrder(context.myacc,opcode,'buy','close',PriceType(PbPriceType.Limit,16),posi[0].volume)
+        
+        print("卖平认沽")
+        #下单买平,16表示对手价,平掉现有仓位的所有手数
+        QuickInsertOrder(context.myacc,opcode,'sell','close',PriceType(PbPriceType.Limit,16),posi[0].volume)
+        
+        print("买平认沽")
+        #下单买平,16表示对手价,平掉现有仓位的所有手数
+        QuickInsertOrder(context.myacc,opcode,'buy','close',PriceType(PbPriceType.Limit,16),posi[0].volume)
+        
+        
+    UnsubscribeBar(g.atmopc,BarType.Min)
+def OnTradeDeal(context, AccountName, trade) :
+    print("TradeDealed on " + trade.id + " on " + AccountName +" contract "+str(trade.contract)+" contract info "+str(GetContractInfo(trade.contract)["名称"]))
