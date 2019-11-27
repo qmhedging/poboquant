@@ -1,0 +1,15 @@
+def GetNTradingDates(enddate,Ndays):
+
+#Get N Trading Days With A Given End Day
+#取以某个日期为截止日的N个交易日    
+    startday=enddate-datetime.timedelta(days=Ndays*3)#to guanrantee get enough trading days
+    
+    dayseries = GetTradingDates('SHFE',startday,enddate)
+    
+    if len(dayseries)>=0:
+        
+        return dayseries[-1*Ndays:]
+    else:
+        print("no enough trading days")
+        #没有足够日期的情况
+        return 0
