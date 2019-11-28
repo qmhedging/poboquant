@@ -7,22 +7,15 @@ import numpy as np
 #用真格量化 python实现，在真格量化上运行，如果有问题 可加群 726895887 咨询
 #真格量化可访问  https://quant.pobo.net.cn
 #这是一个卖空波动率的50ETF期权策略样例,在日线级别测试
-
+#run with Python 2.7
 #开始时间，用于初始化一些参数
 def OnStart(context) :
    
     print "system starting..."
     
     #设定一个全局变量品种
-    g.code0 = "510050.SHSE" #证券品种为50ETF
-    g.etfpos=0 #初始化50ETF持仓数量
-    g.optpos=0 #初始化期权持仓数量
-    #g.ontradedealcount=0
-    #ratio=1.5
-    #订阅实时数据，用于驱动OnQuote事件
-    SubscribeQuote(g.code0) #订阅510050 实时行情
-    SubscribeBar(g.code0, BarType.Day) #订阅 510050 日K线 
-    context.param['ratio']
+ 
+    #context.param['ratio']
     #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
     context.myaccOPT = None #初始化期权账户
     if context.accounts.has_key("回测期权") :
@@ -36,6 +29,45 @@ def OnStart(context) :
         if context.accounts["回测证券"].Login() :
             context.myaccSTC = context.accounts["回测证券"]        
 
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange == 'SHSE' and daynight == 'day':
+        print '上证所白盘行情开盘时重登交易账号'
+        
+        context.myaccOPT.Logout()
+        context.myaccOPT.Login()
+        context.myaccSTC.Logout()
+        context.myaccSTC.Login()
+        
+        
+        g.code0 = "510050.SHSE" #证券品种为50ETF
+        g.etfpos=0 #初始化50ETF持仓数量
+        g.optpos=0 #初始化期权持仓数量
+        #g.ontradedealcount=0
+        #ratio=1.5
+        #订阅实时数据，用于驱动OnQuote事件
+        SubscribeQuote(g.code0) #订阅510050 实时行情
+        #SubscribeBar(g.code0, BarType.Day) #订阅 510050 日K线
+        #盘前查持仓
+        option1 = PBObj()
+        option1.buysellflag = '1' # 查期权的卖开头寸
+        posOPT=context.myaccOPT.GetPositions(option1)
+
+        if len(posOPT)>0:
+
+            g.optpos=posOPT[0].availvolume
+
+            print "ontradedeal 查到期权空头 "+str(g.optpos)
+        
+        option2 = PBObj()
+        option2.buysellflag = '0' # 查50ETF的买开头寸
+        posETF=context.myaccSTC.GetPositions(option2)
+
+        if len(posETF)>0:
+
+            g.etfpos=posETF[0].volume
+
+            print "ontradedeal 查到50ETF 多头 "+str(g.etfpos) 
+        
 #获取期权合约，包括call和put合约
 def Getop(code): #获取虚值期权合约，虚值一档
 
@@ -85,20 +117,20 @@ def OnQuote(context, code) :
     #获取最新价
     now0 = dyndata0.now
     
+    ratio=1.0#just a random ratio,try find a better one
+    
+#     atmop = GetAtmOptionContract('510050.SHSE',datetime.datetime(2018,12,1),2.55,0,'A') #GetQuote("510050.SHSE")
+    
+#     print "A atmop "+str(atmop)+str(GetContractInfo(atmop)["名称"])
+    
+#     atmop1 = GetAtmOptionContract('510050.SHSE',datetime.datetime(2018,12,1),2.55,0,'M')
+    
+#     print "M atmop "+str(atmop1)+str(GetContractInfo(atmop1)["名称"])
     
     
-    atmop = GetAtmOptionContract('510050.SHSE',datetime.datetime(2018,12,1),2.55,0,'A') #GetQuote("510050.SHSE")
+#     atmop2 = GetAtmOptionContract('510050.SHSE',datetime.datetime(2018,12,1),2.55,0)
     
-    print "A atmop "+str(atmop)+str(GetContractInfo(atmop)["名称"])
-    
-    atmop1 = GetAtmOptionContract('510050.SHSE',datetime.datetime(2018,12,1),2.55,0,'M')
-    
-    print "M atmop "+str(atmop1)+str(GetContractInfo(atmop1)["名称"])
-    
-    
-    atmop2 = GetAtmOptionContract('510050.SHSE',datetime.datetime(2018,12,1),2.55,0)
-    
-    print " atmop "+str(atmop2)+str(GetContractInfo(atmop2)["名称"])
+#     print " atmop "+str(atmop2)+str(GetContractInfo(atmop2)["名称"])
     
     #获取看涨看跌期权合约代码
     opc,opp = Getop(g.code0)    
@@ -198,7 +230,7 @@ def OnQuote(context, code) :
 
 
     #如果配置好交易账号了，可以根据条件下单，需把下面中的证券测试账号换成您设置的账号名称
-    if  ImpliedVola>0.23 and poslength==0 and context.myaccOPT and context.myaccSTC  and posmargin<=250000 and 100*10000*dyndata1.now/(dyndata0.now*10000)<=ratio:
+    if  ImpliedVola>0.23 and poslength==0 and context.myaccOPT and context.myaccSTC  and posmargin<=250000 and 100*10000*dyndata1.now/(dyndata0.now*10000)>=ratio:
 
         # 50ETF隐含波动率大于23%就卖出50ETF购12月2600，买入50ETF
         print "open positions with IV at "+str(ImpliedVola)
@@ -272,9 +304,4 @@ def OnTradeDeal(context, AccountName, trade) :
         
         g.etfpos=posETF[0].volume
         
-        print "ontradedeal 查到50ETF 多头 "+str(g.etfpos)    
-        
-        
-        
-    
-    
+        print "ontradedeal 查到50ETF 多头 "+str(g.etfpos) 
