@@ -1,0 +1,14 @@
+def TellOptions(contract):
+    
+    info=GetContractInfo(contract)
+    
+    try:
+    
+        if info["期权类型"]:
+
+            return True #for options ,return true
+        else:
+            return False # for others , return false
+    except:
+        
+        return False # for others , return false
