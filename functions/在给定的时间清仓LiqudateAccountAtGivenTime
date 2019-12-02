@@ -1,0 +1,50 @@
+def liquidateaccountattime(whattime,context): #whattime in format of [hour,minute],like [14,59] 限定小时和分钟，比如[9,35]
+    
+    currenttime=GetCurrentTime()
+    
+    #print("hour "+str(currenttime.hour) + " minute "+str(currenttime.minute))
+    
+    
+    
+    
+    if currenttime.hour==whattime[0] and currenttime.minute==whattime[1]:#时间判断
+        g.openflag=0 #开始清仓，不逊于开仓
+        print("time to liquidate at "+str(whattime))
+        
+        #UnsubscribeQuote(g.code)
+        
+        
+        option = PBObj()
+        #option.buysellflag = '0'
+        orders = context.myacc.GetOrders()
+
+        if len(orders)>0:
+
+            print("有委托，先撤销委托") #撤销所委托，无论开仓平仓
+
+            for i in orders:
+
+                if i.status==5: #已经申报，未成交 这里不管是否可撤都尝试撤单
+
+                    context.myacc.CancelOrder(context.myacc.GetOrder(i.id))
+
+        option = PBObj()
+        #option.buysellflag = '0'
+        positions = context.myacc.GetPositions(option)
+
+        if len(positions)==0:
+
+            print("无持仓，无需清仓")
+
+        if len(positions)>0:
+
+            print("有持仓，开始清仓")
+
+            for i in positions:
+
+                if i.bstype.BuySellFlag=="0":#多头持仓
+                    price_type = PriceType(PbPriceType.Limit,limit_price_type = 6) #跌停价
+                    QuickInsertOrder(context.myacc,i.contract, 'sell','close', price_type,i.availvolume)
+                if i.bstype.BuySellFlag=="1":#空头持仓
+                    price_type = PriceType(PbPriceType.Limit,limit_price_type = 5) #涨停价
+                    QuickInsertOrder(context.myacc,i.contract, 'buy','close', price_type,i.availvolume)
