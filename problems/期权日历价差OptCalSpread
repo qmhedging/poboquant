@@ -6,7 +6,8 @@ import time
 import numpy as np
 from copy import *
 
-
+# run on https://quant.pobo.net.cn
+# 技术问题可以加qq群 726895887 沟通
 #开始时间，用于初始化一些参数 期权的日历价差 日线级别
 def OnStart(context) :
     context.myacc = None
