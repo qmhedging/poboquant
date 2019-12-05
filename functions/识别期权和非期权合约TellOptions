@@ -1,5 +1,6 @@
 def TellOptions(contract):
-    
+    #根据合约代码判断是期货还是期权
+    #tell options or futures from a contract code
     info=GetContractInfo(contract)
     
     try:
