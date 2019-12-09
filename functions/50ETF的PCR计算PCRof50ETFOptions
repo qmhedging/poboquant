@@ -1,0 +1,199 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import time
+import numpy as np
+from copy import *
+#50ETF期权的PCR计算，可以计算成交量pcr和持仓量pcr
+#日线级别，计算全市场看涨和看跌期权的delta之和
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    context.myacc = None
+    #登录交易账号
+    if context.accounts["回测期权"].Login() :
+        context.myacc = context.accounts["回测期权"]
+
+#每天行情初始化的，获取当前的50etf对应的平值期权
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    #过滤掉非上交所的信号
+    if exchange != 'SHSE':
+        return
+    #获取期权标的
+    g.code = '510050.SHSE'
+#     klinedata = GetHisData2(g.biaodi,BarType.Day)
+#     lastclose = klinedata[-1].close
+    #获取当月平价认购期权
+    #g.atmopc = GetAtmOptionContract(g.biaodi,0,lastclose,0)
+    #订阅日K线用来驱动onbar事件
+    SubscribeBar(g.code,BarType.Day)
+    
+    
+    print("pcr "+str(GetOptPCR(g.code,"amount")))
+    
+    
+def GetOptDataSum(optionsset,dataname): #取日k线数据
+    
+    optdatasum=0
+    
+    if len(optionsset)>0:
+        
+        for i in optionsset:
+            
+            kline = GetHisData2(i, bar_type=BarType.Day, end_date= GetCurrentTime(),count=3)
+            
+            if len(kline)>1:
+                
+                #print("date  "+str(kline[-1].datetime)+"   "+str(kline[-2].datetime))
+                
+                if dataname=="volume":
+                
+                    optdatasum=optdatasum+kline[-1].volume #成交量之和
+                    
+                if dataname=="amount":
+                    
+                     optdatasum=optdatasum+kline[-1].amount #持仓量之和
+                        
+                        
+                        
+                    
+            else:
+                
+                #print("合约 "+str(i)+" 未取到数据！")
+                pass
+        
+        return optdatasum
+        
+    else:
+        
+        print("期权列表为空")
+            
+            
+        
+        
+    
+    
+def GetAllOptionsContracts(underlying):
+    
+    callsset=[]
+    putsset=[]
+    
+    monthrange=[0,1,2,3] # as ExcuteDate
+    
+    
+    for month in monthrange:
+        
+        call=GetOptionContracts(underlying,month,0)
+        
+        if call:
+            
+            
+            for i in call:
+            
+                callsset.append(i)
+                #print("添加看涨期权" +str(i))
+        
+        put= GetOptionContracts(underlying,month,1)
+        
+        if put:
+            
+            for i in put:
+            
+                putsset.append(i)
+                #print("添加看跌期权" +str(i))
+            
+    return [callsset,putsset]        
+    
+
+# def GetDeltaSum(optionslist,days):
+    
+#     #get delta sume of a series of options
+#     deltasum=0
+    
+#     if len(optionslist)>0:
+        
+#         for i in optionslist:
+            
+#             #print("contract "+str(i))
+            
+#             OptionDelta = GetOptionDeltaByCode(i, days, pricetype = "now" )
+            
+#             if OptionDelta:
+                
+#                 deltasum=deltasum+OptionDelta
+                
+                
+        
+#     else:
+#         print("期权列表为空")
+    
+#     return  deltasum
+
+
+def GetOptPCR(contract,dataname):
+    
+    
+    
+    optlist=GetAllOptionsContracts(contract)
+    
+    callsset=optlist[0]
+    #print("callset " +str(callsset))
+    
+    putsset=optlist[1]
+    
+    
+    calldatasum=GetOptDataSum(callsset,dataname)
+    
+    putdatasum=GetOptDataSum(putsset,dataname)
+    
+    
+    if calldatasum>0:
+        
+        print("putdatasum "+str(putdatasum)+"  calldatasum"+str(calldatasum))
+        
+        return putdatasum*1.0/calldatasum
+    
+    else:
+        
+        return 0
+    
+
+
+
+
+
+#在k线出现的时候，如果没持仓就卖开，如果有就平仓
+def OnBar(context,code,bartype):
+    
+    if code != g.code:
+
+        return
+    
+#     optlist=GetAllOptionsContracts(g.code)
+    
+#     callsset=optlist[0]
+#     #print("callset " +str(callsset))
+    
+#     putsset=optlist[1]
+    
+    
+#     calldeltasum=GetDeltaSum(callsset,30)
+    
+#     putdeltasum=GetDeltaSum(putsset,30)
+    
+    print("pcr "+str(GetOptPCR(g.code,"amount")))
+    
+#     print("Calls Delta Sum "+str(calldeltasum)+"  Puts Delta Sum "+str(putdeltasum))
+    
+    
+#     posi = context.myacc.GetPositions() #获取所有持仓
+#     if len(posi) == 0:
+#         print("卖开")
+#         #下单卖开,2表示最新价
+#         QuickInsertOrder(context.myacc,g.atmopc,'sell','open',PriceType(PbPriceType.Limit,2),10)
+#     elif len(posi) >0:
+#         opcode = posi[0].contract
+#         print("买平")
+#         #下单买平,16表示对手价,平掉现有仓位的所有手数
+#         QuickInsertOrder(context.myacc,opcode,'buy','close',PriceType(PbPriceType.Limit,16),posi[0].volume)
+    UnsubscribeBar(g.code,BarType.Day)
