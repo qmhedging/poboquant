@@ -33,7 +33,7 @@ def GetAllOptionsContracts(underlying):
     callsset=[]
     putsset=[]
     
-    monthrange=[1,2,3,4] # as ExcuteDate
+    monthrange=[0,1,2,3] # as ExcuteDate 0-当月，1-下月，2-下季，3-隔季
     
     
     for month in monthrange:
