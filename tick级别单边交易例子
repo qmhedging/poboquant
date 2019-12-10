@@ -26,6 +26,7 @@ def OnMarketQuotationInitialEx(context, exchange,daynight):
         print '郑商所夜盘行情开盘时重登交易账号'
         context.accounts[g.accountname].Logout()
         context.accounts[g.accountname].Login()
+        SubscribeQuote(g.code)#订阅合约
     if exchange == 'CZCE' and daynight == 'day':
         print '郑商所日盘行情开盘时重登交易账号'
         context.accounts[g.accountname].Logout()
