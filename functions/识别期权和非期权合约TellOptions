@@ -5,7 +5,7 @@ def TellOptions(contract):
     
     try:
     
-        if info["期权类型"]:
+        if info["期权类型"]==0 or info["期权类型"]==1 or info["期权类型"]==2 :#0为股票期权，1为指数期权，2为期货期权
 
             return True #for options ,return true
         else:
