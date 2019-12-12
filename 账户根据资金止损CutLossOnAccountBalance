@@ -1,0 +1,189 @@
+# coding:utf-8
+#!/usr/bin/env python
+
+from PoboAPI import *
+import datetime
+#python实现期货账户风控，如果有问题 可加群 726895887 咨询
+#开始时间，用于初始化一些参数
+#python 2.7 代码
+
+def OnStart(context) :
+    print "I\'m starting..."
+    g.accountname="回测期货" #这里填自己设置好的（期货）账户名
+    #设定一个全局变量品种
+    g.code = GetMainContract('DCE','m',20) #订阅一个品种 驱动 onQuote
+    #订阅实时数据，用于驱动OnQuote事件
+    SubscribeQuote(g.code)
+    g.openflag=1 #可开仓状态变量
+    #订阅K线数据，用于驱动OnBar事件
+    #SubscribeBar(g.code, BarType.Day)
+    #登录交易账号，需在主页用户管理中设置账号，并把证券测试替换成您的账户名称
+    context.myacc = None
+    if context.accounts.has_key(g.accountname) :
+        print "登录期货交易账号:"+str(g.accountname)
+        if context.accounts[g.accountname].Login() :
+            context.myacc = context.accounts[g.accountname]
+            
+            
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange == 'CZCE' and daynight == 'night':
+        print '郑商所夜盘行情开盘时重登交易账号'
+        context.accounts[g.accountname].Logout()
+        context.accounts[g.accountname].Login()
+        SubscribeQuote(g.code)#订阅合约
+        
+    if exchange == 'CZCE' and daynight == 'day':
+        print '郑商所日盘行情开盘时重登交易账号'
+        context.accounts[g.accountname].Logout()
+        context.accounts[g.accountname].Login() 
+        
+        
+        
+def CutPrice(price,percent,buyorsell): #生成止损平仓价格 （平仓价，浮动比例，多空标志）
+    print "开始计算止损价格-------------------------------------------------"
+    if int(buyorsell)==0:#多头，卖平止损
+       
+        cutprice=round(price*(1-percent),-1) #下调价格 确保卖平
+      
+    if int(buyorsell)==1:#空头，买平止损
+  
+        cutprice=round(price*(1+percent),-1) #上调价格 确保买平      
+    
+    return float(cutprice)
+
+def CutLoss(pos,context): #账户止损函数,实现完全清仓
+    print "开始止损-------------------------------------------------------------------"
+    for i in pos:
+        contractname=i.contract
+        print "持仓合约： "+str(contractname)
+        contractExchange=str(contractname).split(".", 1)[1]#读取交易所名称，即"m1901.DCE"的后半段
+        print "合约交易所："+str(contractExchange) +str(len(contractExchange))
+        
+        NowPriceSet=GetQuote(contractname) #取合约 最新价格
+        NowPrice=NowPriceSet.now
+        print "合约最新价格：" + str(NowPrice)
+        
+        openprice=i.openavgprice
+        print "开仓均价： "+str(openprice)
+        availablevolume=i.availvolume
+        print "持仓数量： "+str(availablevolume)
+        BuySellFlag=i.bstype.BuySellFlag
+        print "多空方向："+str(BuySellFlag)
+        TodayFlag=i.bstype.TodayFlag
+        print "今仓昨仓："+str(TodayFlag)# true 今仓 False 昨仓
+        #posnum=int(i.availvolume)
+        print "reach-------------------cuting conditions--------------------"
+        if str(contractExchange)=="SHFE" and NowPrice<>0.0: #上期所 for SHFE
+            print "上期所合约"
+            if str(TodayFlag)=="True": #持有上期所今仓
+                if int(BuySellFlag)==0: # 持有多头
+                    
+                    TradePrice=CutPrice(NowPrice, 0.02, BuySellFlag) # 生成平仓价格 （平仓价，浮动比例，多空标志）
+                    
+                    print "cut price is "+str(TradePrice)
+                    context.myacc.InsertOrder(contractname, BSType.SellCloseToday, TradePrice, availablevolume) #上期所 多头 卖平今
+            
+              
+                if int(BuySellFlag)==1: # 持有空头
+                    
+                    TradePrice=CutPrice(NowPrice, 0.02, BuySellFlag) # 生成平仓价格 （平仓价，浮动比例，多空标志）
+                    
+                    print "cut price is "+str(TradePrice)
+                    context.myacc.InsertOrder(contractname, BSType.BuyCloseToday, TradePrice, availablevolume) #上期所 空头 买平今            
+            
+            if str(TodayFlag)=="False": #持有上期所昨仓
+                
+                if int(BuySellFlag)==0: # 持有多头
+                    
+                    TradePrice=CutPrice(NowPrice, 0.02, BuySellFlag) # 生成平仓价格 （平仓价，浮动比例，多空标志）
+                    
+                    print "cut price is "+str(TradePrice)
+                    context.myacc.InsertOrder(contractname, BSType.SellClose, TradePrice, availablevolume) #上期所 多头 卖平昨
+            
+              
+                if int(BuySellFlag)==1: # 持有空头
+                    
+                    TradePrice=CutPrice(NowPrice, 0.02, BuySellFlag) # 生成平仓价格 （平仓价，浮动比例，多空标志）
+                    
+                    print "cut price is "+str(TradePrice)
+                    context.myacc.InsertOrder(contractname, BSType.BuyClose, TradePrice, availablevolume) #上期所 多头 买平昨                  
+        
+        if str(contractExchange)<>"SHFE" and NowPrice<>0.0: #非上期所品种 
+            print "非上期所合约"
+            if int(BuySellFlag)==0: # 持有多头
+                
+                TradePrice=CutPrice(NowPrice, 0.02, BuySellFlag) # 生成平仓价格 （平仓价，浮动比例，多空标志）
+                print "cut price is "+str(TradePrice)
+                
+                context.myacc.InsertOrder(contractname, BSType.SellClose, TradePrice, availablevolume) #非上期所 多头 卖平
+        
+          
+            if int(BuySellFlag)==1: # 持有空头
+                
+                TradePrice=CutPrice(NowPrice, 0.02, BuySellFlag) # 生成平仓价格 （平仓价，浮动比例，多空标志）
+                
+                print "cut price is "+str(TradePrice)
+                context.myacc.InsertOrder(contractname, BSType.BuyClose, TradePrice, availablevolume) #非上期所 空头 买平              
+            
+            
+    
+    return
+
+#实时行情事件，当有新行情出现时调用该事件
+def OnQuote(context, code) :
+    #过滤掉不需要的行情通知
+    
+    StartBalance=1000000.0 #填写账户期初金额
+    print "monitoring account "+str(g.accountname)
+    CutBalance= StartBalance*0.99 #填写清盘线金额
+    print "the code is "+str(code)
+    if code != g.code :
+
+        code = GetMainContract('DCE','m',20) #订阅一个品种 驱动 onQuote
+    #  return 
+
+    #获取最新行情
+    dyndata = GetQuote(code)
+
+
+    if dyndata :
+        
+        
+        #一个策略
+        
+        
+        option = PBObj()
+        klinedata = GetHisData(g.code, BarType.Day, option)
+        print klinedata[-1].close
+        if klinedata[len(klinedata)-1].close < klinedata[len(klinedata)-2].close and g.openflag==1 :
+          # 当日收盘价小于昨收则买入     
+          context.myacc.InsertOrder(g.code, BSType.BuyOpen, dyndata.now, 10)
+        elif klinedata[len(klinedata)-1].close > klinedata[len(klinedata)-2].close:
+          # 当日收盘价大于昨收则卖出
+          context.myacc.InsertOrder(g.code, BSType.SellClose, dyndata.now, 10)
+        
+        
+        #.now指最新价，详细属性见API文档
+        now1 = dyndata.now
+        #打印最新价
+        #log.info("最新价: " + str(dyndata.now))
+        balset = context.accounts[g.accountname].AccountBalance #获取账户权益
+        bal=balset.AssetsBalance
+        print "balance is "+str(bal)
+
+        if bal<=CutBalance : #判断是否止损，即权益触及规定止损权益
+            g.openflag=0
+            print "达到止损条件，禁止开仓"
+            print "Balance to cut loss is "+str(bal)      
+            option = PBObj()      
+            pos = context.accounts[g.accountname].GetPositions(option)#查询持仓
+            print "with positions "+str(len(pos))
+            
+            if len(pos)>0:
+              
+                CutLoss(pos,context)
+
+def OnOrderChange(context, AccountName, order) :
+    #打印委托信息，id是编号，volume是数量，详细见API文档
+    print "委托编号： " + order.id + "   账号名称： " + AccountName
+    print "Vol: " + str(order.volume) + " Price: " + str(order.price)
