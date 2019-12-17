@@ -1,0 +1,26 @@
+def Ref(contract,pricetype,bartype,steps):
+    
+    #引用X在N个周期前的值
+    #例:REF(CLOSE,5);表示引用当前周期前第5个周期的收盘价
+    
+    option = PBObj()
+    #option.StartDate = 
+    option.EndDate = GetCurrentTime()
+    option.Count=steps+1
+    klinedata = GetHisData(contract , bartype, option) #bartype like BarType.Min
+    
+    
+    if len(klinedata)>0:
+        
+        
+        if pricetype=="close": #取收盘价
+            
+        
+            print("checking----- "+str(klinedata[(steps+1)*-1].close)+" "+str(klinedata[(steps+1)*-1].datetime))
+
+            return klinedata[(steps+1)*-1].close
+    
+        
+    else:
+        print("数据不全，未查到数据")
+        return 0
