@@ -1,0 +1,184 @@
+#!/usr/bin/env python
+# coding:utf-8
+from PoboAPI import *
+import datetime
+import numpy as np
+
+#开始时间，用于初始化一些参数
+def OnStart(context) :
+    print("I\'m starting...")
+    #登录交易账号，需在主页用户管理中设置账号，并把期货测试替换成您的账户名称
+    g.mf0set=[]#存储mf0的数据的数组
+    context.myacc = None
+    g.con1count=[0,0]#条件1计数
+    g.con2count=[0,0]#条件2计数
+    g.tbp=[] #初始化tbp的数组
+    
+    if "回测期货" in context.accounts :
+        print("登录交易账号[回测期货]")
+        if context.accounts["回测期货"].Login() :
+            context.myacc = context.accounts["回测期货"]
+
+def OnMarketQuotationInitialEx(context, exchange,daynight):
+    if exchange != 'SHFE':
+        return
+    #获取主力合约
+    g.code = GetMainContract('SHFE', 'rb',20)
+    #订阅K线数据，用于驱动OnBar事件
+    SubscribeBar(g.code, BarType.Day) 
+    
+#实时行情事件，当有新行情出现时调用该事件Ex
+def OnBar(context,code,bartype):
+    #过滤掉不需要的行情通知
+    if code != g.code:
+        return
+    dyndata = GetQuote(g.code)
+    print("code "+str(g.code))
+    option = PBObj()
+    #option.StartDate = datetime.datetime(2019, 3,18, 11, 25)
+    option.EndDate = GetCurrentTime()
+    klinedata = GetHisData(g.code, BarType.Day, option)
+    highprice=klinedata[-2].high
+    lowprice=klinedata[-2].low
+    closeprice=klinedata[-2].close
+    
+    #apx=（high+close+low）/3
+    
+    apx=(highprice+lowprice+closeprice)*1.0/3.0
+    
+    #tr0=max( high-low,  max( abs(high - ref(close,3), abs(low-ref(close,3)))
+    
+    
+    
+    if Ref(g.code,"close",BarType.Day,3)>0:
+        
+        
+    
+        close3=Ref(g.code,"close",BarType.Day,3)
+        
+        
+        tr0=max(highprice-lowprice, max(abs(highprice-close3),abs(lowprice-close3)))
+        
+        #mf0= close - ref(close,3)
+        
+        #print("closeprice "+str(closeprice)+" close3 "+str(close3))
+        
+        g.mf0set.append(closeprice-close3)
+    
+        #mf1= ref(mf0,1)
+        
+    if len(g.mf0set)>4:
+        
+        direct0=0 #初始化direct0
+        
+        mf0=g.mf0set[-1]
+        
+        #mf1= ref(mf0,1)
+        
+        mf1=g.mf0set[-2]
+        
+        #mf2=ref(mf0,3)
+        
+        mf2=g.mf0set[-3]
+        
+        #direct1= barslast(mf0>mf1   and mf0 > mf2 )
+        if mf0>mf1 and mf0>mf2:
+            
+            g.con1count[0]=1 #状态变量改变
+            
+            g.con1count[1]=0 #计数清零
+            
+        if g.con1count[0]==1:
+            
+            g.con1count[1]=g.con1count[1]+1
+            
+        #diriect2 = barslast( mf0<mf1   and mf0 < mf2 )    
+        if mf0<mf1 and mf0<mf2:
+            
+            g.con2count[0]=1 #状态变量改变
+            
+            g.con2count[1]=0 #计数清零
+            
+        if g.con2count[0]==1:
+            
+            g.con2count[1]=g.con2count[1]+1     
+            
+        #direct0=if(direct1<direct2,  100,-100)    
+        if  g.con1count[1]<g.con2count[1]:
+            
+            direct0=100
+        else:
+            direct0=-100
+            
+        #tbp=ref( ref(c,3)+ if(direct0>50,   min(mf0,mf1),  max(mf0,mf1)),1)
+        
+        
+        if direct0>50:
+            
+            tbpsecondpart=min(mf0,mf1)
+        else:
+            tbpsecondpart=max(mf0,mf1)
+            
+        tbpitem=close3 + tbpsecondpart
+        
+        #print(" close3 "+str(close3)+"  tbpsecondpart "+str(tbpsecondpart))
+        
+        g.tbp.append(tbpitem)
+        
+            
+    if len(g.tbp)>=2:
+        
+        print("TBP 指标-------"+str(g.tbp[-2])) #输出指标
+            
+        
+        
+        
+    
+    #[0,0,0,1,0,0,0,1]
+    #[0,0,0,1,2,3,4,0]
+
+    #print1(str(Ref(g.code,"close",BarType.Day,10)))
+    
+    #计算均线
+#     MA = GetIndicator("MA",code,params=(5,10),bar_type = BarType.Day)
+#     MA1 = MA["MA(5)"]
+#     MA2 = MA["MA(10)"]
+#     if len(MA2)<2:
+#         return
+#     #ma1上穿ma2时买入螺纹主力1手
+#     elif MA1[-1] >= MA2[-1] and MA1[-2]<MA2[-2]:
+#         QuickInsertOrder(context.myacc,g.code,'buy','open',dyndata.now,10)
+#     #ma1下穿ma2时卖出平仓
+#     elif MA1[-1] <= MA2[-1] and MA1[-2]>MA2[-2]:
+#         QuickInsertOrder(context.myacc,g.code,'sell','close',dyndata.now,10)
+        
+        
+def Ref(contract,pricetype,bartype,steps):
+    
+    #引用X在N个周期前的值
+    #例:REF(CLOSE,5);表示引用当前周期前第5个周期的收盘价
+    
+    option = PBObj()
+    #option.StartDate = 
+    option.EndDate = GetCurrentTime()
+    option.Count=steps+1
+    klinedata = GetHisData(contract , bartype, option) #bartype like BarType.Min
+    
+    
+    if len(klinedata)>0:
+        
+        
+        if pricetype=="close": #取收盘价
+            
+        
+            #print("checking----- "+str(klinedata[(steps+1)*-1].close)+" "+str(klinedata[(steps+1)*-1].datetime))
+
+            return klinedata[(steps+1)*-1].close
+    
+        
+    else:
+        print("数据不全，未查到数据")
+        return 0
+    
+   
+        
