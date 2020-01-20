@@ -6,8 +6,8 @@ def OnQuote(context,code) :
     
     print "hour "+str(currenttime.hour) + " minute "+str(currenttime.minute)
     
-    
-    if currenttime.hour==9 and currenttime.minute==32:
+    #判断时间，时间到了就进行一个操作
+    if currenttime.hour==9 and currenttime.minute==32: #在9：32进行合约行情退订
         
         print "time to unsubcribe"
         
